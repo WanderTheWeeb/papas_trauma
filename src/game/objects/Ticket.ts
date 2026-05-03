@@ -152,7 +152,7 @@ export class Ticket extends GameObjects.Container {
             .text(
                 -TICKET_W / 2 + padX,
                 this.factorY + this.factorTexts.length * 20,
-                `✓  ${factor}`,
+                `+  ${factor}`,
                 {
                     ...TYPE.paperItem,
                     fontSize: '14px',

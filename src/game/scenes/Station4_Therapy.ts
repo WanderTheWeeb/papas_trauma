@@ -240,8 +240,8 @@ export class Station4_Therapy extends StationBase {
         this.fillBar.setFillStyle(precision > 0 ? COLORS.success : COLORS.danger);
         this.fillLabel.setText(
             precision > 0
-                ? `✓ Dosis correcta (${Math.round(precision * 100)}% de precisión)`
-                : '✗ Dosis fuera de rango terapéutico',
+                ? `Dosis correcta — ${Math.round(precision * 100)}% de precisión`
+                : 'Dosis fuera de rango terapéutico',
         );
 
         if (precision === 0) {
@@ -333,7 +333,7 @@ export class Station4_Therapy extends StationBase {
             `${farmacoNombre} · ${destino === 'urgente' ? 'Referencia urgente' : 'Manejo conservador'}`,
         );
         this.statusText
-            .setText(`✓ Ticket enviado a ${destino === 'urgente' ? 'Bandeja B (urgente)' : 'Bandeja A (conservador)'}`)
+            .setText(`Ticket enviado — ${destino === 'urgente' ? 'Bandeja B / urgente' : 'Bandeja A / conservador'}`)
             .setColor(COLORS_HEX.success);
     }
 

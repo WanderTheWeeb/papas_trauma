@@ -135,14 +135,7 @@ export class Station1_Order extends StationBase {
         card.strokeRoundedRect(panelX, panelY, panelW, panelH, 12);
 
         this.add
-            .text(panelX + 24, panelY + panelH / 2, '🎯', {
-                fontSize: '28px',
-                fontFamily: 'sans-serif',
-            })
-            .setOrigin(0.5);
-
-        this.add
-            .text(panelX + 60, panelY + 22, 'Identifica los factores de riesgo', {
+            .text(panelX + 24, panelY + 22, 'Identifica los factores de riesgo', {
                 ...TYPE.h4,
                 fontSize: '17px',
             })
@@ -150,7 +143,7 @@ export class Station1_Order extends StationBase {
 
         this.add
             .text(
-                panelX + 60,
+                panelX + 24,
                 panelY + 46,
                 'Arrastra los stickers correctos al ticket. Los incorrectos lo ensucian.',
                 { ...TYPE.bodyS, fontSize: '13px' },

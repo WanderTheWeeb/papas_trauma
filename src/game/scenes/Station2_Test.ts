@@ -290,7 +290,7 @@ export class Station2_Test extends StationBase {
         if (!timingOk) {
             this.flashShoulder(COLORS.danger);
             this.resultText
-                .setText('⌛ Timing fallido — vuelve a intentar')
+                .setText('Timing fallido — vuelve a intentar')
                 .setColor(COLORS_HEX.danger);
             return;
         }

@@ -281,7 +281,7 @@ export class Station3_Sello extends StationBase {
             GameState.setDiagnostico(sello.diagnostico);
             this.ticket.setDiagnostico(sello.diagnostico);
             this.locked = true;
-            this.statusText.setText('✓ sellado').setColor(COLORS_HEX.success);
+            this.statusText.setText('SELLADO').setColor(COLORS_HEX.success);
 
             // Big stamp animation: shrink + place near ticket center
             this.tweens.add({
