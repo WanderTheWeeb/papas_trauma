@@ -14,7 +14,10 @@ export class Boot extends Scene {
         if (typeof document !== 'undefined' && (document as Document).fonts) {
             try {
                 await Promise.all([
-                    (document as Document).fonts.load('700 16px "Outfit"'),
+                    (document as Document).fonts.load('600 64px "Fraunces"'),
+                    (document as Document).fonts.load('900 180px "Fraunces"'),
+                    (document as Document).fonts.load('600 14px "IBM Plex Sans Condensed"'),
+                    (document as Document).fonts.load('400 14px "IBM Plex Mono"'),
                     (document as Document).fonts.load('400 16px "Lora"'),
                 ]);
                 await (document as Document).fonts.ready;
