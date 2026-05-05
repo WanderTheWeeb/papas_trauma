@@ -226,8 +226,13 @@ export class ExploracionPhase extends PhaseHandler {
 
         c.add([bg, accent, name, sub]);
         c.bg = bg;
-        c.setSize(w, h);
-        c.setInteractive(new Geom.Rectangle(-w / 2, -h / 2, w, h), Geom.Rectangle.Contains);
+        // Inflated hit area for mobile / fat-finger accuracy
+        const pad = 18;
+        c.setSize(w + pad * 2, h + pad * 2);
+        c.setInteractive(
+            new Geom.Rectangle(-(w + pad * 2) / 2, -(h + pad * 2) / 2, w + pad * 2, h + pad * 2),
+            Geom.Rectangle.Contains,
+        );
         this.scene.input.setDraggable(c);
 
         c.on('pointerover', () => {

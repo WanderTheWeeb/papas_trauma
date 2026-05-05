@@ -68,8 +68,9 @@ export class DraggableSticker extends GameObjects.Container {
         this.visual.add([shadow, this.bg, this.accent, dogear, this.label]);
         this.add(this.visual);
 
-        // Hit area: a touch larger than the card to tolerate the tilt
-        const pad = 6;
+        // Hit area: generously bigger than the card so fat-fingers on mobile
+        // still grab it. Visual stays the same; only the touch zone grows.
+        const pad = 22;
         this.setSize(w + pad * 2, h + pad * 2);
         this.setInteractive(
             new Geom.Rectangle(-(w + pad * 2) / 2, -(h + pad * 2) / 2, w + pad * 2, h + pad * 2),

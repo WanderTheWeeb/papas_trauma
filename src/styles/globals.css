@@ -87,16 +87,27 @@ html, body {
     font-style: italic;
     font-size: 15px;
     color: #9bb0c7;
-    max-width: 320px;
-    line-height: 1.5;
+    max-width: 360px;
+    line-height: 1.55;
     margin: 0;
 }
+
+#orient-overlay p + p { margin-top: 12px; }
 
 #orient-overlay .icon {
     font-size: 56px;
     margin-bottom: 24px;
     animation: rotate-hint 2.4s ease-in-out infinite;
     transform-origin: center;
+}
+
+#orient-overlay small {
+    margin-top: 28px;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    color: #5c6f86;
+    letter-spacing: 2px;
+    text-transform: uppercase;
 }
 
 @keyframes rotate-hint {

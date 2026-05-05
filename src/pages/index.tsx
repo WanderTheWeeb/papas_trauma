@@ -75,9 +75,14 @@ export default function Home() {
                     <div className="icon">↻</div>
                     <h1>Gira tu pantalla</h1>
                     <p>
-                        Trauma Station se ve mejor en horizontal. Gira el dispositivo para entrar al
-                        turno de urgencias.
+                        Trauma Station se diseñó para pantalla horizontal. Gira el dispositivo
+                        para entrar al turno de urgencias.
                     </p>
+                    <p>
+                        Para la mejor experiencia, ábrelo en computadora o tableta — el escritorio
+                        clínico necesita espacio.
+                    </p>
+                    <small>· EXPEDIENTE PENDIENTE ·</small>
                 </div>
             </main>
         </>
