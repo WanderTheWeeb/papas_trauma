@@ -32,6 +32,15 @@ export class Preloader extends Scene {
 
     preload() {
         this.load.setPath('assets');
+        this.load.image('bg-menu', 'bg_menu.jpg');
+        this.load.image('bg-station1', 'bg_station1.jpg');
+        this.load.image('bg-station2', 'bg_station2.jpg');
+        this.load.image('bg-station3', 'bg_station3.jpg');
+        this.load.image('bg-station4', 'bg_station4.jpg');
+        this.load.image('bg-evaluation', 'bg_evaluation.jpg');
+        this.load.image('patient-sans', 'sans.png');
+        this.load.image('aux-shoulder', 'dolor_hombro.png');
+        this.load.image('aux-xray', 'x_ray.png');
     }
 
     create() {

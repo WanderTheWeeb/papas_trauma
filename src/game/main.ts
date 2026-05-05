@@ -4,11 +4,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from './config/constants';
 import { Boot } from './scenes/Boot';
 import { Preloader } from './scenes/Preloader';
 import { MainMenu } from './scenes/MainMenu';
-import { Station1_Order } from './scenes/Station1_Order';
-import { Station2_Test } from './scenes/Station2_Test';
-import { Station3_Sello } from './scenes/Station3_Sello';
-import { Station4_Therapy } from './scenes/Station4_Therapy';
-import { Evaluation } from './scenes/Evaluation';
+import { ConsultaScene } from './scenes/ConsultaScene';
 
 const config: Phaser.Types.Core.GameConfig = {
     type: AUTO,
@@ -30,11 +26,7 @@ const config: Phaser.Types.Core.GameConfig = {
         Boot,
         Preloader,
         MainMenu,
-        Station1_Order,
-        Station2_Test,
-        Station3_Sello,
-        Station4_Therapy,
-        Evaluation,
+        ConsultaScene,
     ],
 };
 
