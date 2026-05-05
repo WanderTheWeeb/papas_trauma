@@ -302,7 +302,7 @@ export class SelladoPhase extends PhaseHandler {
                 },
             });
 
-            this.scene.sansReact('confío en su criterio doc', 'thanks');
+            // No Sans line — let the doctor own the diagnosis decision.
             this.scene.refreshFooter();
             this.scene.time.delayedCall(680, () => this.onComplete());
         } else {
@@ -313,7 +313,7 @@ export class SelladoPhase extends PhaseHandler {
             sello.returnHome();
             this.expediente.flashReject();
             this.scene.playSfx('error');
-            this.scene.sansReact('¿está seguro de eso?', 'doubt');
+            // No Sans correction. The stamp won't lock; the doctor figures it out.
         }
     }
 }

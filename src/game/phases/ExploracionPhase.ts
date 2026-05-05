@@ -426,7 +426,7 @@ export class ExploracionPhase extends PhaseHandler {
             this.flashShoulder(COLORS.danger);
             this.resultText.setText('timing fallido — intenta otra vez').setColor(COLORS_HEX.danger);
             this.scene.playSfx('error');
-            this.scene.sansReact('así no doc, otra vez', 'doubt');
+            // No Sans correction on missed timing — keep him quiet.
             return;
         }
 
