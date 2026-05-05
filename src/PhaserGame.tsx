@@ -34,8 +34,27 @@ export const PhaserGame = forwardRef<IRefPhaserGame, IProps>(function PhaserGame
 
         }
 
+        // Refresh Phaser's scale calculation on resize / orientation change.
+        // Without this, rotating the device or hiding the orient-overlay
+        // leaves the canvas with the size it had at boot.
+        const refresh = () => {
+            game.current?.scale.refresh();
+        };
+        window.addEventListener('resize', refresh);
+        window.addEventListener('orientationchange', refresh);
+        // Several deferred refreshes catch the cases where the parent
+        // container resolves its CSS dimensions a tick after mount.
+        const t1 = window.setTimeout(refresh, 50);
+        const t2 = window.setTimeout(refresh, 250);
+        const t3 = window.setTimeout(refresh, 800);
+
         return () =>
         {
+            window.removeEventListener('resize', refresh);
+            window.removeEventListener('orientationchange', refresh);
+            window.clearTimeout(t1);
+            window.clearTimeout(t2);
+            window.clearTimeout(t3);
             if (game.current)
             {
                 game.current.destroy(true);

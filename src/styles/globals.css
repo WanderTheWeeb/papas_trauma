@@ -30,6 +30,8 @@ html, body {
     /* Use the small viewport unit on mobile to avoid the iOS bottom bar issue */
     width: 100svw;
     height: 100svh;
+    display: block !important;
+    position: relative;
 }
 
 #app {
