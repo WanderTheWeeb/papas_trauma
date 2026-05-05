@@ -273,7 +273,6 @@ export class PrescripcionPhase extends PhaseHandler {
             if (b.id === id) {
                 b.setActive();
             } else {
-                // Reset look on non-selected boxes
                 b.bg.setStrokeStyle(1, 0xc9bfa6);
                 const parent = (b.bg as unknown as { parentContainer: GameObjects.Container }).parentContainer;
                 if (parent) {
@@ -281,6 +280,7 @@ export class PrescripcionPhase extends PhaseHandler {
                 }
             }
         });
+        this.scene.playSfx('pickup');
         this.hintText.setText('mantén pulsada la barra para dosificar (objetivo: zona verde)');
     }
 
@@ -459,6 +459,7 @@ export class PrescripcionPhase extends PhaseHandler {
         );
 
         if (precision === 0) {
+            this.scene.playSfx('error');
             this.scene.time.delayedCall(900, () => {
                 if (this.destinoSent) return;
                 this.fillFraction = 0;
@@ -467,6 +468,7 @@ export class PrescripcionPhase extends PhaseHandler {
                 this.fillLabel.setText('MANTÉN PULSADO PARA LLENAR');
             });
         } else {
+            this.scene.playSfx('beep');
             this.hintText.setText('elige el destino del paciente');
         }
         void this.fillBarStartX;

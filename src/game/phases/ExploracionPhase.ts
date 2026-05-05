@@ -425,6 +425,8 @@ export class ExploracionPhase extends PhaseHandler {
         if (!timingOk) {
             this.flashShoulder(COLORS.danger);
             this.resultText.setText('timing fallido — intenta otra vez').setColor(COLORS_HEX.danger);
+            this.scene.playSfx('error');
+            this.scene.sansReact('así no doc, otra vez', 'doubt');
             return;
         }
 
@@ -445,6 +447,15 @@ export class ExploracionPhase extends PhaseHandler {
         this.resultText
             .setText(`${info.nombre} — ${resultado === 'positivo' ? '(+) POSITIVO' : '(−) negativo'}`)
             .setColor(resultado === 'positivo' ? COLORS_HEX.danger : COLORS_HEX.success);
+
+        if (resultado === 'positivo') {
+            this.scene.playSfx('error');
+            this.scene.sansReact('¡AGH! ahí…', 'pain');
+        } else {
+            this.scene.playSfx('beep');
+            this.scene.sansReact('eso no me dolió', 'ok');
+        }
+        this.scene.playSfx('scratch');
 
         this.scene.refreshFooter();
 

@@ -4,6 +4,7 @@ import { EVENTS, GAME_HEIGHT, GAME_WIDTH, SCENES } from '../config/constants';
 import { EventBus } from '../EventBus';
 import { GameState } from '../state/GameState';
 import { Expediente, EXPEDIENTE_H } from '../objects/Expediente';
+import { SoundFx } from '../objects/SoundFx';
 import { PhaseHandler } from '../phases/PhaseHandler';
 import { RecepcionPhase } from '../phases/RecepcionPhase';
 import { ExploracionPhase } from '../phases/ExploracionPhase';
@@ -42,6 +43,17 @@ export class ConsultaScene extends Scene {
     private statusFooter!: GameObjects.Text;
     private sendButton?: GameObjects.Container;
     private overlay?: GameObjects.Container;
+
+    // Sans / clock / mute
+    private sansSprite?: GameObjects.Image;
+    private sansBaseY = 0;
+    private sansX = 0;
+    private reactionContainer?: GameObjects.Container;
+    private reactionTimer?: Phaser.Time.TimerEvent;
+    private clockText!: GameObjects.Text;
+    private clockSeconds = 23 * 3600 + 47 * 60; // starts at 23:47
+    private clockEvent?: Phaser.Time.TimerEvent;
+    private muteIcon?: GameObjects.Text;
 
     constructor() {
         super(SCENES.CONSULTA);
@@ -127,12 +139,62 @@ export class ConsultaScene extends Scene {
         if (caso) {
             this.add
                 .text(
-                    GAME_WIDTH - m - 16,
+                    GAME_WIDTH - m - 200,
                     m - 22,
                     `EXP. ${caso.id.toString().padStart(3, '0')}  ·  ${caso.paciente.nombre.toUpperCase()}  ·  ${caso.paciente.ocupacion.toUpperCase()}`,
                     { ...TYPE.label, fontSize: '11px', color: COLORS_HEX.textMuted },
                 )
                 .setOrigin(1, 1);
+        }
+
+        // Clock — top-right, mono, dim teal
+        this.clockText = this.add
+            .text(GAME_WIDTH - m - 60, m - 22, this.clockLabel(), {
+                fontFamily: FONTS.mono,
+                fontSize: '13px',
+                color: COLORS_HEX.success,
+                fontStyle: '500',
+            })
+            .setOrigin(1, 1)
+            .setLetterSpacing(1.4);
+
+        // Mute toggle — small circle with speaker glyph
+        this.muteIcon = this.add
+            .text(GAME_WIDTH - m - 16, m - 22, '♪', {
+                fontFamily: FONTS.mono,
+                fontSize: '14px',
+                color: COLORS_HEX.success,
+            })
+            .setOrigin(1, 1)
+            .setInteractive({ useHandCursor: true });
+        this.muteIcon.on('pointerdown', () => this.toggleMute());
+
+        // Start clock — one tick per real second = 1 in-game minute
+        this.clockEvent = this.time.addEvent({
+            delay: 1000,
+            loop: true,
+            callback: () => {
+                this.clockSeconds += 60;
+                if (this.clockText) this.clockText.setText(this.clockLabel());
+                // Soft tick every 5 in-game minutes
+                if ((this.clockSeconds / 60) % 5 === 0) SoundFx.tick();
+            },
+        });
+    }
+
+    private clockLabel(): string {
+        const totalMinutes = Math.floor(this.clockSeconds / 60);
+        const h = Math.floor(totalMinutes / 60) % 24;
+        const m = totalMinutes % 60;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
+    private toggleMute() {
+        const next = !SoundFx.isMuted();
+        SoundFx.setMuted(next);
+        if (this.muteIcon) {
+            this.muteIcon.setText(next ? '✕' : '♪');
+            this.muteIcon.setColor(next ? COLORS_HEX.textDim : COLORS_HEX.success);
         }
     }
 
@@ -144,6 +206,9 @@ export class ConsultaScene extends Scene {
         const pedestal = this.add.graphics();
         pedestal.fillStyle(0x000000, 0.22);
         pedestal.fillEllipse(colX, baseY + 6, 220, 22);
+
+        this.sansX = colX;
+        this.sansBaseY = baseY;
 
         if (this.textures.exists('patient-sans')) {
             const sans = this.add.image(colX, baseY, 'patient-sans').setOrigin(0.5, 1);
@@ -163,6 +228,7 @@ export class ConsultaScene extends Scene {
                 yoyo: true,
                 repeat: -1,
             });
+            this.sansSprite = sans;
         }
 
         const caso = GameState.getCaso();
@@ -173,6 +239,9 @@ export class ConsultaScene extends Scene {
         const bw = 700;
         const bh = 220;
 
+        // Bubble container so we can animate it as a unit
+        const bubbleCont = this.add.container(0, 0);
+
         const bubble = this.add.graphics();
         bubble.fillStyle(COLORS.paper, 0.95);
         bubble.fillRoundedRect(bx, by, bw, bh, 12);
@@ -180,8 +249,9 @@ export class ConsultaScene extends Scene {
         bubble.strokeRoundedRect(bx, by, bw, bh, 12);
         bubble.fillStyle(COLORS.paper, 0.95);
         bubble.fillTriangle(bx, by + 80, bx, by + 120, bx - 18, by + 100);
+        bubbleCont.add(bubble);
 
-        this.add
+        const eyebrow = this.add
             .text(bx + 24, by + 22, '— DICE EL PACIENTE', {
                 ...TYPE.paperLabel,
                 fontSize: '10px',
@@ -189,11 +259,13 @@ export class ConsultaScene extends Scene {
             })
             .setOrigin(0, 0)
             .setLetterSpacing(2.4);
+        bubbleCont.add(eyebrow);
 
-        this.add.rectangle(bx + 24, by + 42, 22, 1, 0xc9bfa6).setOrigin(0, 0);
+        bubbleCont.add(this.add.rectangle(bx + 24, by + 42, 22, 1, 0xc9bfa6).setOrigin(0, 0));
 
-        this.add
-            .text(bx + 24, by + 56, '"' + motivo + '"', {
+        // Typewriter text — start empty, fill char by char
+        const motivoText = this.add
+            .text(bx + 24, by + 56, '', {
                 fontFamily: FONTS.body,
                 fontSize: '17px',
                 color: COLORS_HEX.ink,
@@ -202,6 +274,40 @@ export class ConsultaScene extends Scene {
                 lineSpacing: 5,
             })
             .setOrigin(0, 0);
+        bubbleCont.add(motivoText);
+
+        // Bubble pop-in
+        bubbleCont.setAlpha(0);
+        bubbleCont.y = -10;
+        this.tweens.add({
+            targets: bubbleCont,
+            alpha: 1,
+            y: 0,
+            duration: 360,
+            delay: 320,
+            ease: 'Back.out',
+        });
+
+        // Typewriter + voice — kicks in after the bubble settles
+        const fullText = '"' + motivo + '"';
+        let i = 0;
+        const startDelay = 700;
+
+        this.time.delayedCall(startDelay, () => {
+            // play one long voice burst across the typewriter
+            SoundFx.sansVoice(Math.min(40, fullText.length));
+            const ev = this.time.addEvent({
+                delay: 26,
+                repeat: fullText.length - 1,
+                callback: () => {
+                    i++;
+                    motivoText.setText(fullText.slice(0, i));
+                    // periodic voice retrigger so it keeps "talking"
+                    if (i % 18 === 0) SoundFx.sansVoice(18);
+                },
+            });
+            void ev;
+        });
     }
 
     private drawCounter() {
@@ -342,6 +448,147 @@ export class ConsultaScene extends Scene {
         if (this.statusFooter) this.statusFooter.setText(this.computeFooterStatus());
     }
 
+    // ─── Sans reactions (small floating bubble) ──────────────
+    /**
+     * Pops a small reaction bubble next to Sans for ~1.6 s. Use for short
+     * diegetic feedback when the player succeeds or fails an interaction.
+     */
+    sansReact(text: string, mood: 'pain' | 'ok' | 'doubt' | 'thanks' = 'ok') {
+        if (!this.sansSprite) return;
+
+        // Tear down any previous reaction
+        if (this.reactionContainer) {
+            this.reactionContainer.destroy();
+            this.reactionContainer = undefined;
+        }
+        if (this.reactionTimer) {
+            this.reactionTimer.remove();
+            this.reactionTimer = undefined;
+        }
+
+        const cx = this.sansX + 110;
+        const cy = this.sansBaseY - 230;
+
+        const cont = this.add.container(cx, cy).setDepth(2500);
+
+        const padX = 14;
+        const padY = 8;
+        const tmp = this.add.text(0, 0, text, {
+            fontFamily: FONTS.body,
+            fontSize: '14px',
+            color: COLORS_HEX.ink,
+            fontStyle: 'italic',
+            wordWrap: { width: 220 },
+            align: 'center',
+        }).setOrigin(0.5);
+        const w = tmp.width + padX * 2;
+        const h = tmp.height + padY * 2;
+        tmp.destroy();
+
+        // Bubble background
+        const bubble = this.add.graphics();
+        bubble.fillStyle(COLORS.paper, 0.97);
+        bubble.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
+        bubble.lineStyle(1, 0xc9bfa6, 0.8);
+        bubble.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
+        // Tail downward toward Sans
+        bubble.fillStyle(COLORS.paper, 0.97);
+        bubble.fillTriangle(-12, h / 2, 12, h / 2, 0, h / 2 + 14);
+        cont.add(bubble);
+
+        // Mood color tag
+        const tagColor =
+            mood === 'pain' ? COLORS.danger : mood === 'doubt' ? COLORS.warning : COLORS.success;
+        cont.add(this.add.rectangle(-w / 2 + 8, 0, 4, h - 16, tagColor).setOrigin(0.5));
+
+        const txt = this.add
+            .text(0, 0, text, {
+                fontFamily: FONTS.body,
+                fontSize: '14px',
+                color: COLORS_HEX.ink,
+                fontStyle: 'italic',
+                wordWrap: { width: 220 },
+                align: 'center',
+            })
+            .setOrigin(0.5);
+        cont.add(txt);
+
+        // Pop-in animation
+        cont.setScale(0.7).setAlpha(0);
+        this.tweens.add({
+            targets: cont,
+            scale: 1,
+            alpha: 1,
+            y: cy - 6,
+            duration: 220,
+            ease: 'Back.out',
+        });
+
+        // Voice
+        SoundFx.sansVoice(text.length);
+
+        // Wiggle Sans on pain
+        if (mood === 'pain' && this.sansSprite) {
+            this.tweens.add({
+                targets: this.sansSprite,
+                angle: { from: -3, to: 3 },
+                duration: 60,
+                yoyo: true,
+                repeat: 3,
+                onComplete: () => {
+                    if (this.sansSprite) this.sansSprite.angle = 0;
+                },
+            });
+        }
+
+        this.reactionContainer = cont;
+        this.reactionTimer = this.time.delayedCall(1600, () => {
+            if (!this.reactionContainer) return;
+            this.tweens.add({
+                targets: this.reactionContainer,
+                alpha: 0,
+                y: cy - 16,
+                duration: 240,
+                onComplete: () => {
+                    this.reactionContainer?.destroy();
+                    this.reactionContainer = undefined;
+                },
+            });
+        });
+    }
+
+    /** Public sound hook for phase handlers */
+    playSfx(name: 'thunk' | 'swoosh' | 'beep' | 'error' | 'pickup' | 'scratch' | 'tick') {
+        switch (name) {
+            case 'thunk':
+                SoundFx.thunk();
+                break;
+            case 'swoosh':
+                SoundFx.swoosh();
+                break;
+            case 'beep':
+                SoundFx.beep();
+                break;
+            case 'error':
+                SoundFx.error();
+                break;
+            case 'pickup':
+                SoundFx.pickup();
+                break;
+            case 'scratch':
+                SoundFx.scratch();
+                break;
+            case 'tick':
+                SoundFx.tick();
+                break;
+        }
+    }
+
+    /** Sans speaking voice (Undertale-style beep beep) */
+    sansSpeak(charCount = 12) {
+        SoundFx.sansVoice(charCount);
+    }
+
     private computeFooterStatus(): string {
         const caso = GameState.getCaso();
         const t = GameState.getTicket();
@@ -401,6 +648,7 @@ export class ConsultaScene extends Scene {
     private advancePhase() {
         const idx = PHASE_ORDER.indexOf(this.currentPhaseId as never);
         const next = PHASE_ORDER[idx + 1];
+        SoundFx.swoosh();
         // fade-out, swap, fade-in
         this.tweens.add({
             targets: [this.bandeja, this.aux],
@@ -547,7 +795,8 @@ export class ConsultaScene extends Scene {
             overlay.add(c);
         };
 
-        mkBtn(0, 'VOLVER AL MENÚ', () => this.scene.start(SCENES.MAIN_MENU));
+        mkBtn(-110, 'SIGUIENTE PACIENTE', () => this.nextCase());
+        mkBtn(110, 'VOLVER AL MENÚ', () => this.scene.start(SCENES.MAIN_MENU));
 
         overlay.setAlpha(0);
         overlay.y = cy + 24;
@@ -562,4 +811,15 @@ export class ConsultaScene extends Scene {
         this.overlay = overlay;
     }
 
+    private nextCase() {
+        if (this.clockEvent) {
+            this.clockEvent.remove();
+            this.clockEvent = undefined;
+        }
+        this.cameras.main.fadeOut(260, 7, 14, 24);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            GameState.nextCase();
+            this.scene.restart();
+        });
+    }
 }

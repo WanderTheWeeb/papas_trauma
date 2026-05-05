@@ -297,9 +297,12 @@ export class SelladoPhase extends PhaseHandler {
                 onComplete: () => {
                     sello.consumed = true;
                     sello.disableInteractive();
+                    // THUNK happens at the moment of impact
+                    this.scene.playSfx('thunk');
                 },
             });
 
+            this.scene.sansReact('confío en su criterio doc', 'thanks');
             this.scene.refreshFooter();
             this.scene.time.delayedCall(680, () => this.onComplete());
         } else {
@@ -309,6 +312,8 @@ export class SelladoPhase extends PhaseHandler {
             sello.flashError();
             sello.returnHome();
             this.expediente.flashReject();
+            this.scene.playSfx('error');
+            this.scene.sansReact('¿está seguro de eso?', 'doubt');
         }
     }
 }

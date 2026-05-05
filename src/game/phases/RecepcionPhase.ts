@@ -98,6 +98,28 @@ export class RecepcionPhase extends PhaseHandler {
         this.cards = [];
     }
 
+    private acceptLine(value: string): string {
+        const v = value.toLowerCase();
+        if (v.includes('edad')) return 'sí, ya no soy tan joven…';
+        if (v.includes('repetit')) return 'eso hago todo el día';
+        if (v.includes('agudo') || v.includes('trauma')) return 'fue de un momento a otro';
+        if (v.includes('diabetes')) return 'me la diagnosticaron hace años';
+        if (v.includes('falla')) return 'ya intenté de todo';
+        if (v.includes('crónic') || v.includes('cronic')) return 'lleva meses así';
+        return 'eso… eso me suena';
+    }
+
+    private rejectLine(): string {
+        const lines = [
+            'no creo que tenga eso',
+            'no, no es por ahí',
+            'eso no aplica…',
+            'mmm, no doc',
+            'no me suena',
+        ];
+        return lines[Math.floor(Math.random() * lines.length)];
+    }
+
     private handleDrop(card: DraggableSticker) {
         const eBounds = this.expediente.getBounds();
         const inExp = Geom.Rectangle.Contains(eBounds, card.x, card.y);
@@ -113,6 +135,9 @@ export class RecepcionPhase extends PhaseHandler {
             card.consume();
             this.foundCount++;
             this.expediente.flashAccept();
+            this.scene.playSfx('scratch');
+            this.scene.playSfx('beep');
+            this.scene.sansReact(this.acceptLine(card.value), 'ok');
         } else {
             const localX = card.x - this.expediente.x;
             const localY = card.y - this.expediente.y;
@@ -120,6 +145,8 @@ export class RecepcionPhase extends PhaseHandler {
             card.flashError();
             card.returnHome();
             this.expediente.flashReject();
+            this.scene.playSfx('error');
+            this.scene.sansReact(this.rejectLine(), 'doubt');
         }
 
         this.scene.refreshFooter();
