@@ -18,6 +18,7 @@ class GameStateClass {
         this.ticket = {
             casoId: caso.id,
             factoresSeleccionados: [],
+            factoresIncorrectos: [],
             maniobrasRealizadas: [],
             diagnosticoSellado: null,
             farmacoSeleccionado: null,
@@ -46,6 +47,13 @@ class GameStateClass {
         }
     }
 
+    addFactorIncorrecto(factor: string) {
+        if (!this.ticket) return;
+        if (!this.ticket.factoresIncorrectos.includes(factor)) {
+            this.ticket.factoresIncorrectos.push(factor);
+        }
+    }
+
     addManiobra(m: ManiobraEjecutada) {
         if (!this.ticket) return;
         this.ticket.maniobrasRealizadas.push(m);
@@ -71,12 +79,14 @@ class GameStateClass {
             return empty;
         }
 
-        // Symptom (25): % de factores correctos sin penalizar extras (placeholder)
+        // Symptom (25): % de factores correctos, penaliza incorrectos -3 cada uno
         const factoresEsperados = caso.factoresRiesgo;
         const correctos = ticket.factoresSeleccionados.filter(f => factoresEsperados.includes(f)).length;
-        const symptom = factoresEsperados.length
+        const base = factoresEsperados.length
             ? (correctos / factoresEsperados.length) * 25
             : 0;
+        const penalty = (ticket.factoresIncorrectos?.length ?? 0) * 3;
+        const symptom = Math.max(0, base - penalty);
 
         // Testing (25): % de maniobras esperadas con timing acertado
         const maniobrasEsperadas = caso.maniobras.map(m => m.id);

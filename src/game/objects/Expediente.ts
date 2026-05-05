@@ -192,14 +192,29 @@ export class Expediente extends GameObjects.Container {
     }
 
     // ─── public API ─────────────────────────────────────────
+    private wrongFactors: string[] = [];
+
     addFactor(factor: string) {
         this.factors.push(factor);
-        const lines = this.factors.map(f => `+  ${f}`);
-        this.factorsList.setText(lines.join('\n'));
-        this.factorsList.setStyle({
-            fontStyle: '500',
-            color: COLORS_HEX.successDim,
-        });
+        this.refreshFactorsList();
+    }
+
+    addFactorWrong(factor: string) {
+        this.wrongFactors.push(factor);
+        this.refreshFactorsList();
+    }
+
+    private refreshFactorsList() {
+        const goodLines = this.factors.map(f => `+  ${f}`);
+        const badLines = this.wrongFactors.map(f => `✕  ${f}`);
+        const all = [...goodLines, ...badLines];
+        if (all.length === 0) {
+            this.factorsList.setText('pendiente —');
+            this.factorsList.setStyle({ fontStyle: 'italic', color: COLORS_HEX.textDim });
+            return;
+        }
+        this.factorsList.setText(all.join('\n'));
+        this.factorsList.setStyle({ fontStyle: '500', color: COLORS_HEX.ink });
     }
 
     addManiobra(nombre: string, resultado: 'positivo' | 'negativo') {

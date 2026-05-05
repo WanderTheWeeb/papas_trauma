@@ -277,63 +277,57 @@ export class SelladoPhase extends PhaseHandler {
         }
 
         const correct = sello.diagnostico === this.caso.diagnosticoCorrecto;
+        // Always commit the stamp — doctor can fail. The dx is whatever they
+        // chose; evaluation will judge it.
+        GameState.setDiagnostico(sello.diagnostico);
+        this.expediente.setDiagnostico(sello.diagnostico);
+        this.locked = true;
         if (correct) {
-            GameState.setDiagnostico(sello.diagnostico);
-            this.expediente.setDiagnostico(sello.diagnostico);
-            this.locked = true;
             this.expediente.flashAccept();
             this.scene.streaks?.correct();
-
-            const targetX = this.expediente.x;
-            const targetY = this.expediente.y - 60;
-
-            // Stamp animation: faster + bounce ease so it feels heavier
-            this.scene.tweens.add({
-                targets: sello,
-                x: targetX,
-                y: targetY,
-                scale: 0.7,
-                angle: -10,
-                alpha: 0.92,
-                duration: 220,
-                ease: 'Bounce.easeOut',
-                onComplete: () => {
-                    sello.consumed = true;
-                    sello.disableInteractive();
-                    this.scene.playSfx('thunk');
-                    // Heavy weight: camera shake at the moment of impact
-                    this.scene.cameras.main.shake(260, 0.006);
-
-                    // Permanent ink stamp ring near the expediente
-                    const localX = targetX - this.expediente.x;
-                    const localY = targetY - this.expediente.y;
-                    const stamp = this.scene.add.graphics();
-                    stamp.lineStyle(2, sello.color, 0.85);
-                    stamp.strokeCircle(this.expediente.x + localX, this.expediente.y + localY, 28);
-                    stamp.strokeCircle(this.expediente.x + localX, this.expediente.y + localY, 22);
-                    stamp.setDepth(950);
-                    // Soft fade-in
-                    stamp.setAlpha(0);
-                    this.scene.tweens.add({
-                        targets: stamp,
-                        alpha: 1,
-                        duration: 200,
-                    });
-                    this.own(stamp);
-                },
-            });
-
-            this.scene.refreshFooter();
-            this.scene.time.delayedCall(720, () => this.onComplete());
         } else {
-            const localX = sello.x - this.expediente.x;
-            const localY = sello.y - this.expediente.y;
-            this.expediente.markDirty(localX, localY);
-            sello.flashError();
-            sello.returnHome();
             this.expediente.flashReject();
-            this.scene.playSfx('error');
-            // No Sans correction. The stamp won't lock; the doctor figures it out.
+            this.scene.streaks?.wrong();
         }
+
+        const targetX = this.expediente.x;
+        const targetY = this.expediente.y - 60;
+
+        // Heavy stamp animation regardless of correctness
+        this.scene.tweens.add({
+            targets: sello,
+            x: targetX,
+            y: targetY,
+            scale: 0.7,
+            angle: -10,
+            alpha: 0.92,
+            duration: 220,
+            ease: 'Bounce.easeOut',
+            onComplete: () => {
+                sello.consumed = true;
+                sello.disableInteractive();
+                this.scene.playSfx('thunk');
+                this.scene.cameras.main.shake(260, 0.006);
+
+                // Permanent ink stamp — green if correct, red-ish if wrong
+                const stampColor = correct ? sello.color : 0x7a3a2a;
+                const stamp = this.scene.add.graphics();
+                stamp.lineStyle(2, stampColor, 0.85);
+                stamp.strokeCircle(targetX, targetY, 28);
+                stamp.strokeCircle(targetX, targetY, 22);
+                stamp.setDepth(950);
+                stamp.setAlpha(0);
+                this.scene.tweens.add({ targets: stamp, alpha: 1, duration: 200 });
+                this.own(stamp);
+
+                if (!correct) {
+                    // Drop one extra error sound to make the wrong stamp feel weighty/wrong
+                    this.scene.time.delayedCall(120, () => this.scene.playSfx('error'));
+                }
+            },
+        });
+
+        this.scene.refreshFooter();
+        this.scene.time.delayedCall(820, () => this.onComplete());
     }
 }

@@ -21,26 +21,22 @@ const FARMACOS: ReadonlyArray<FarmacoSpec> = [
 ] as const;
 type FarmacoId = FarmacoSpec['id'];
 
-const TARGET_LO = 0.55;
-const TARGET_HI = 0.85;
+// Treatment days — target band is the "right" range
+const DAYS_MIN = 1;
+const DAYS_MAX = 21;
+const DAYS_TARGET_LO = 7;
+const DAYS_TARGET_HI = 14;
 
 export class PrescripcionPhase extends PhaseHandler {
     private selectedFarmaco: FarmacoId | null = null;
     private dosePrecision = 0;
-    private holding = false;
-    private fillStart = 0;
-    private fillFraction = 0;
-    private filling = false;
     private destinoSent = false;
+    private days = 0; // 0 means "not chosen yet"
 
-    private fillBar!: GameObjects.Rectangle;
-    private fillLabel!: GameObjects.Text;
+    private daysDisplay!: GameObjects.Text;
+    private daysHelper!: GameObjects.Text;
     private hintText!: GameObjects.Text;
-    private updateHandler?: () => void;
     private farmacoButtons: Array<{ bg: GameObjects.Rectangle; id: FarmacoId; setActive: () => void }> = [];
-
-    private fillBarStartX = 0;
-    private fillBarMaxW = 0;
 
     phaseId(): 'prescripcion' {
         return 'prescripcion';
@@ -61,30 +57,11 @@ export class PrescripcionPhase extends PhaseHandler {
     build() {
         this.buildDispenserAux();
         this.buildBandeja();
-
-        this.updateHandler = () => this.tick();
-        this.scene.events.on('update', this.updateHandler);
     }
 
     cleanup() {
-        if (this.updateHandler) {
-            this.scene.events.off('update', this.updateHandler);
-            this.updateHandler = undefined;
-        }
         super.cleanup();
         this.farmacoButtons = [];
-    }
-
-    private tick() {
-        if (!this.filling) return;
-        const elapsed = (this.scene.time.now - this.fillStart) / 2200;
-        this.fillFraction = Math.min(1, elapsed);
-        this.fillBar.width = 4 + (this.fillBarMaxW - 4) * this.fillFraction;
-        if (this.fillFraction > TARGET_HI) {
-            this.fillBar.setFillStyle(COLORS.danger);
-        } else if (this.fillFraction >= TARGET_LO) {
-            this.fillBar.setFillStyle(COLORS.success);
-        }
     }
 
     // ─── Aux: dispenser (medication boxes) ─────────────────
@@ -281,19 +258,24 @@ export class PrescripcionPhase extends PhaseHandler {
             }
         });
         this.scene.playSfx('pickup');
-        this.hintText.setText('mantén pulsada la barra para dosificar (objetivo: zona verde)');
+        this.hintText.setText('ajusta los días de tratamiento (objetivo: rango óptimo)');
+        if (this.days === 0) {
+            this.daysDisplay.setText('1');
+            this.days = 1;
+            this.adjustDays(0); // refresh color/helper
+        }
     }
 
-    // ─── Bandeja: dose meter + destinos ────────────────────
+    // ─── Bandeja: days counter + destinos ──────────────────
     private buildBandeja() {
         const x = BANDEJA_X;
         const y = BANDEJA_Y + 214;
         const w = BANDEJA_W;
 
-        // Eyebrow + status
+        // Eyebrow
         this.bandeja.add(
             this.scene.add
-                .text(x, y, 'DOSIS  ·  7–14 DÍAS', {
+                .text(x, y, 'DURACIÓN DEL TRATAMIENTO', {
                     ...TYPE.label,
                     fontSize: '10px',
                     color: COLORS_HEX.textDim,
@@ -302,65 +284,89 @@ export class PrescripcionPhase extends PhaseHandler {
                 .setLetterSpacing(2.4),
         );
 
-        // Dose meter bar
-        const bx = x;
-        const by = y + 24;
-        const bw = w;
-        const bh = 22;
+        // Counter card — large pill-bottle style display
+        const cardX = x;
+        const cardY = y + 22;
+        const cardW = w;
+        const cardH = 78;
 
-        this.fillBarStartX = bx;
-        this.fillBarMaxW = bw;
+        const card = this.scene.add.graphics();
+        card.fillStyle(COLORS.surface, 0.85);
+        card.fillRoundedRect(cardX, cardY, cardW, cardH, 8);
+        card.lineStyle(1, COLORS.border, 1);
+        card.strokeRoundedRect(cardX, cardY, cardW, cardH, 8);
+        this.bandeja.add(card);
 
-        this.bandeja.add(
-            this.scene.add
-                .rectangle(bx, by, bw, bh, COLORS.bgDeep, 0.85)
-                .setOrigin(0, 0)
-                .setStrokeStyle(1, COLORS.border),
-        );
-        // Target zone
-        const tlo = bx + bw * TARGET_LO;
-        const thi = bx + bw * TARGET_HI;
-        this.bandeja.add(
-            this.scene.add
-                .rectangle(tlo, by, thi - tlo, bh, COLORS.success, 0.3)
-                .setOrigin(0, 0)
-                .setStrokeStyle(1, COLORS.success, 0.7),
-        );
-        // Fill bar
-        this.fillBar = this.scene.add
-            .rectangle(bx, by, 4, bh, COLORS.warning)
-            .setOrigin(0, 0);
-        this.bandeja.add(this.fillBar);
-
-        // Hold-to-fill button
-        const btnY = by + bh + 8;
-        const btnH = 26;
-        const btn = this.scene.add
-            .rectangle(bx, btnY, bw, btnH, COLORS.surfaceHi, 0.92)
-            .setOrigin(0, 0)
+        // [-] button
+        const btnSize = 50;
+        const minus = this.scene.add
+            .rectangle(cardX + 18, cardY + cardH / 2, btnSize, btnSize, COLORS.surfaceHi, 0.95)
             .setStrokeStyle(1, COLORS.border)
             .setInteractive({ useHandCursor: true });
-        this.own(btn);
-
-        this.fillLabel = this.scene.add
-            .text(bx + bw / 2, btnY + btnH / 2, 'MANTÉN PULSADO PARA LLENAR', {
-                ...TYPE.label,
-                fontSize: '11px',
+        const minusLabel = this.scene.add
+            .text(cardX + 18, cardY + cardH / 2, '−', {
+                fontFamily: FONTS.display,
+                fontSize: '36px',
                 color: COLORS_HEX.text,
+                fontStyle: '500',
             })
-            .setOrigin(0.5)
-            .setLetterSpacing(2);
-        this.bandeja.add(this.fillLabel);
+            .setOrigin(0.5);
+        this.own(minus);
+        this.bandeja.add(minusLabel);
 
-        btn.on('pointerdown', () => this.startFilling());
-        btn.on('pointerup', () => this.stopFilling());
-        btn.on('pointerout', () => {
-            if (this.holding) this.stopFilling();
-        });
+        // [+] button
+        const plus = this.scene.add
+            .rectangle(cardX + cardW - 18, cardY + cardH / 2, btnSize, btnSize, COLORS.surfaceHi, 0.95)
+            .setStrokeStyle(1, COLORS.border)
+            .setInteractive({ useHandCursor: true });
+        const plusLabel = this.scene.add
+            .text(cardX + cardW - 18, cardY + cardH / 2, '+', {
+                fontFamily: FONTS.display,
+                fontSize: '32px',
+                color: COLORS_HEX.text,
+                fontStyle: '500',
+            })
+            .setOrigin(0.5);
+        this.own(plus);
+        this.bandeja.add(plusLabel);
 
-        // Hint line
+        // Big number in the middle
+        this.daysDisplay = this.scene.add
+            .text(cardX + cardW / 2, cardY + cardH / 2 - 6, '—', {
+                fontFamily: FONTS.display,
+                fontSize: '44px',
+                color: COLORS_HEX.text,
+                fontStyle: '700',
+            })
+            .setOrigin(0.5);
+        this.bandeja.add(this.daysDisplay);
+
+        // "DÍAS" label below the number
+        this.bandeja.add(
+            this.scene.add
+                .text(cardX + cardW / 2, cardY + cardH - 14, 'DÍAS DE TRATAMIENTO', {
+                    ...TYPE.label,
+                    fontSize: '9px',
+                    color: COLORS_HEX.textDim,
+                })
+                .setOrigin(0.5)
+                .setLetterSpacing(2.4),
+        );
+
+        // Helper line below the card
+        this.daysHelper = this.scene.add
+            .text(x, cardY + cardH + 8, '', {
+                ...TYPE.bodyS,
+                fontSize: '11px',
+                color: COLORS_HEX.textDim,
+                fontStyle: 'italic',
+            })
+            .setOrigin(0, 0);
+        this.bandeja.add(this.daysHelper);
+
+        // Hint
         this.hintText = this.scene.add
-            .text(x, btnY + btnH + 14, 'selecciona un fármaco para empezar', {
+            .text(x, cardY + cardH + 28, 'selecciona un fármaco para empezar', {
                 ...TYPE.bodyS,
                 fontSize: '11px',
                 color: COLORS_HEX.textDim,
@@ -369,13 +375,45 @@ export class PrescripcionPhase extends PhaseHandler {
             .setOrigin(0, 0);
         this.bandeja.add(this.hintText);
 
+        minus.on('pointerdown', () => this.adjustDays(-1));
+        plus.on('pointerdown', () => this.adjustDays(+1));
+
         // Destino buttons
-        const destY = btnY + btnH + 50;
+        const destY = cardY + cardH + 60;
         const halfGap = 12;
         const halfW = (w - halfGap) / 2;
         const destH = 56;
-        this.makeDestino(bx, destY, halfW, destH, 'A', 'CONSERVADOR', 'fisioterapia · 1er nivel', COLORS.success, 'conservador');
-        this.makeDestino(bx + halfW + halfGap, destY, halfW, destH, 'B', 'URGENTE', 'ortopedia · 2do nivel', COLORS.danger, 'urgente');
+        this.makeDestino(x, destY, halfW, destH, 'A', 'CONSERVADOR', 'fisioterapia · 1er nivel', COLORS.success, 'conservador');
+        this.makeDestino(x + halfW + halfGap, destY, halfW, destH, 'B', 'URGENTE', 'ortopedia · 2do nivel', COLORS.danger, 'urgente');
+    }
+
+    private adjustDays(delta: number) {
+        if (this.destinoSent) return;
+        if (!this.selectedFarmaco) {
+            this.scene.playSfx('error');
+            return;
+        }
+        if (this.days === 0 && delta < 0) return;
+        this.days = Math.max(DAYS_MIN, Math.min(DAYS_MAX, (this.days || 0) + delta));
+        this.daysDisplay.setText(this.days.toString());
+        this.scene.playSfx('tick');
+
+        // Color by zone
+        const inTarget = this.days >= DAYS_TARGET_LO && this.days <= DAYS_TARGET_HI;
+        const nearTarget =
+            (this.days >= DAYS_TARGET_LO - 2 && this.days < DAYS_TARGET_LO) ||
+            (this.days > DAYS_TARGET_HI && this.days <= DAYS_TARGET_HI + 4);
+        const color = inTarget ? COLORS_HEX.success : nearTarget ? COLORS_HEX.warning : COLORS_HEX.danger;
+        this.daysDisplay.setColor(color);
+
+        // Helper hint
+        if (inTarget) this.daysHelper.setText('rango terapéutico óptimo').setColor(COLORS_HEX.successDim);
+        else if (nearTarget) this.daysHelper.setText('cerca del rango').setColor(COLORS_HEX.warning);
+        else if (this.days < DAYS_TARGET_LO) this.daysHelper.setText('dosis subterapéutica').setColor(COLORS_HEX.danger);
+        else this.daysHelper.setText('riesgo de efectos adversos').setColor(COLORS_HEX.danger);
+
+        // Update hint to lead to destino
+        this.hintText.setText('elige el destino del paciente').setColor(COLORS_HEX.textDim);
     }
 
     private makeDestino(
@@ -431,79 +469,67 @@ export class PrescripcionPhase extends PhaseHandler {
         this.own(s);
     }
 
-    private startFilling() {
-        if (!this.selectedFarmaco || this.destinoSent) return;
-        if (this.dosePrecision > 0) return;
-        this.holding = true;
-        this.filling = true;
-        this.fillStart = this.scene.time.now;
-        this.fillFraction = 0;
-        this.fillLabel.setText('LLENANDO…');
-    }
-
-    private stopFilling() {
-        if (!this.holding) return;
-        this.holding = false;
-        this.filling = false;
-
-        const f = this.fillFraction;
-        let precision = 0;
-        if (f >= TARGET_LO && f <= TARGET_HI) {
-            const center = (TARGET_LO + TARGET_HI) / 2;
-            const half = (TARGET_HI - TARGET_LO) / 2;
-            precision = 1 - Math.abs(f - center) / half;
+    private computePrecisionFromDays(days: number): number {
+        if (days <= 0) return 0;
+        if (days >= DAYS_TARGET_LO && days <= DAYS_TARGET_HI) {
+            const center = (DAYS_TARGET_LO + DAYS_TARGET_HI) / 2;
+            const half = (DAYS_TARGET_HI - DAYS_TARGET_LO) / 2;
+            return 1 - Math.abs(days - center) / half;
         }
-        this.dosePrecision = precision;
-
-        this.fillBar.setFillStyle(precision > 0 ? COLORS.success : COLORS.danger);
-        this.fillLabel.setText(
-            precision > 0
-                ? `dosis correcta — ${Math.round(precision * 100)}% de precisión`
-                : 'dosis fuera de rango terapéutico',
-        );
-
-        if (precision === 0) {
-            this.scene.playSfx('error');
-            this.scene.time.delayedCall(900, () => {
-                if (this.destinoSent) return;
-                this.fillFraction = 0;
-                this.fillBar.width = 4;
-                this.fillBar.setFillStyle(COLORS.warning);
-                this.fillLabel.setText('MANTÉN PULSADO PARA LLENAR');
-            });
-        } else {
-            this.scene.playSfx('beep');
-            this.hintText.setText('elige el destino del paciente');
-        }
-        void this.fillBarStartX;
+        // Near-zone: half points
+        if (days >= DAYS_TARGET_LO - 2 && days < DAYS_TARGET_LO) return 0.5;
+        if (days > DAYS_TARGET_HI && days <= DAYS_TARGET_HI + 4) return 0.5;
+        return 0;
     }
 
     private sendToDestino(destino: 'conservador' | 'urgente') {
         if (this.destinoSent) return;
-        if (!this.selectedFarmaco || this.dosePrecision === 0) {
+        if (!this.selectedFarmaco) {
             if (this.hintText && this.hintText.active) {
-                this.hintText
-                    .setText('selecciona un fármaco y dosifica antes de enviar')
-                    .setColor(COLORS_HEX.danger);
+                this.hintText.setText('selecciona un fármaco antes de enviar').setColor(COLORS_HEX.danger);
             }
+            this.scene.playSfx('error');
             return;
         }
+        if (this.days === 0) {
+            if (this.hintText && this.hintText.active) {
+                this.hintText.setText('ajusta los días de tratamiento antes de enviar').setColor(COLORS_HEX.danger);
+            }
+            this.scene.playSfx('error');
+            return;
+        }
+
+        // Always commit — doctor can fail. Precision comes from the days they chose.
+        this.dosePrecision = this.computePrecisionFromDays(this.days);
         this.destinoSent = true;
 
         const farmacoNombre = FARMACOS.find(f => f.id === this.selectedFarmaco)!.nombre;
         GameState.setPrescripcion(farmacoNombre, this.dosePrecision, destino);
         this.expediente.setPrescripcion(
-            `${farmacoNombre} · ${destino === 'urgente' ? 'Referencia urgente' : 'Manejo conservador'}`,
+            `${farmacoNombre} · ${this.days} días · ${destino === 'urgente' ? 'Referencia urgente' : 'Manejo conservador'}`,
         );
-        this.expediente.flashAccept();
+
+        const goodDose = this.dosePrecision > 0;
+        if (goodDose) {
+            this.expediente.flashAccept();
+            this.scene.streaks?.correct();
+        } else {
+            this.expediente.flashReject();
+            this.scene.streaks?.wrong();
+            this.scene.playSfx('error');
+        }
+
         if (this.hintText && this.hintText.active) {
             this.hintText
-                .setText(`expediente enviado — ${destino === 'urgente' ? 'bandeja B (urgente)' : 'bandeja A (conservador)'}`)
-                .setColor(COLORS_HEX.success);
+                .setText(
+                    goodDose
+                        ? `expediente enviado — ${destino === 'urgente' ? 'bandeja B' : 'bandeja A'}`
+                        : 'enviado con dosis cuestionable',
+                )
+                .setColor(goodDose ? COLORS_HEX.success : COLORS_HEX.warning);
         }
-        this.scene.streaks?.correct();
 
         this.scene.refreshFooter();
-        this.scene.time.delayedCall(720, () => this.onComplete());
+        this.scene.time.delayedCall(820, () => this.onComplete());
     }
 }

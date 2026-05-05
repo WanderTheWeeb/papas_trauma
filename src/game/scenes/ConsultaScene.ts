@@ -902,11 +902,48 @@ export class ConsultaScene extends Scene {
         return { name: 'EXPEDIENTE DESASTROSO', sub: 'el paciente huyó por las escaleras' };
     }
 
-    private getSansFarewell(total: number): string {
-        if (total >= 80) return 'gracias doc, le confío mis huesos';
-        if (total >= 50) return 'estuvo bien, supongo. me voy';
-        if (total >= 20) return 'creo que voy a buscar segunda opinión';
-        return 'le pago en silbidos doc… silbidos de hueso';
+    private playFarewellSequence(seq: Array<{ line: string; mood: 'pain' | 'ok' | 'doubt' | 'thanks' }>) {
+        seq.forEach((step, i) => {
+            this.time.delayedCall(1200 + i * 1900, () => {
+                this.sansReact(step.line, step.mood);
+            });
+        });
+    }
+
+    private getSansFarewellSequence(total: number): Array<{ line: string; mood: 'pain' | 'ok' | 'doubt' | 'thanks' }> {
+        if (total >= 90) {
+            return [
+                { line: 'doc, eso fue impecable', mood: 'thanks' },
+                { line: 'le voy a recomendar con mi familia', mood: 'thanks' },
+                { line: 'y eso que somos puro hueso', mood: 'ok' },
+            ];
+        }
+        if (total >= 75) {
+            return [
+                { line: 'gracias doc, le confío mis huesos', mood: 'thanks' },
+                { line: 'estuvo bien la consulta', mood: 'ok' },
+            ];
+        }
+        if (total >= 50) {
+            return [
+                { line: 'estuvo… raro, pero bueno', mood: 'doubt' },
+                { line: 'creo que sigo enfermo, ¿no?', mood: 'doubt' },
+                { line: 'igual gracias supongo', mood: 'ok' },
+            ];
+        }
+        if (total >= 20) {
+            return [
+                { line: 'doc… creo que la cagamos', mood: 'doubt' },
+                { line: 'voy a buscar segunda opinión', mood: 'doubt' },
+                { line: '¿usted siempre así o solo hoy?', mood: 'doubt' },
+            ];
+        }
+        return [
+            { line: 'doc, ¿quiere pasar un mal rato?', mood: 'pain' },
+            { line: 'porque YO acabo de pasar uno', mood: 'pain' },
+            { line: 'le pago en silbidos doc…', mood: 'doubt' },
+            { line: 'silbidos de hueso', mood: 'pain' },
+        ];
     }
 
     private showEvaluation() {
@@ -1014,10 +1051,8 @@ export class ConsultaScene extends Scene {
             onComplete: () => SoundFx.sansVoice(title.name.length),
         });
 
-        // Sans farewell, drops in shortly after the overlay
-        this.time.delayedCall(1200, () => {
-            this.sansReact(this.getSansFarewell(score.total), score.total >= 50 ? 'thanks' : 'doubt');
-        });
+        // Sans farewell sequence — drops 2-4 lines spaced apart, dramatic on bad scores
+        this.playFarewellSequence(this.getSansFarewellSequence(score.total));
 
         // Rows
         const rows: Array<[string, number]> = [

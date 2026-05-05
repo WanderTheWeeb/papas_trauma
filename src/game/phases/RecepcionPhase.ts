@@ -11,6 +11,7 @@ const REQUIRED_KEY = 'phase-recepcion-drag-listener';
 export class RecepcionPhase extends PhaseHandler {
     private cards: DraggableSticker[] = [];
     private foundCount = 0;
+    private wrongCount = 0;
     private dragHandler?: (...args: unknown[]) => void;
 
     phaseId(): 'recepcion' {
@@ -26,7 +27,9 @@ export class RecepcionPhase extends PhaseHandler {
     }
 
     isComplete(): boolean {
-        return this.foundCount >= this.caso.factoresRiesgo.length;
+        if (this.foundCount >= this.caso.factoresRiesgo.length) return true;
+        // Or: ran out of cards — doctor moves on with what they have
+        return this.cards.length > 0 && this.cards.every(c => c.consumed);
     }
 
     build() {
@@ -117,12 +120,16 @@ export class RecepcionPhase extends PhaseHandler {
             this.scene.playSfx('beep');
             this.scene.streaks?.correct();
         } else {
+            // Wrong factor — IT STAYS on the expediente. Doctor owns the mistake.
+            GameState.addFactorIncorrecto(card.value);
+            this.expediente.addFactorWrong(card.value);
             const localX = card.x - this.expediente.x;
             const localY = card.y - this.expediente.y;
             this.expediente.markDirty(localX, localY);
-            card.flashError();
-            card.returnHome();
+            card.consume();
+            this.wrongCount++;
             this.expediente.flashReject();
+            this.scene.playSfx('scratch');
             this.scene.playSfx('paperRip');
             this.scene.streaks?.wrong();
         }

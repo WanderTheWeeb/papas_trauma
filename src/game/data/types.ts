@@ -44,6 +44,7 @@ export interface ManiobraEjecutada {
 export interface TicketEnConstruccion {
     casoId: number;
     factoresSeleccionados: string[];
+    factoresIncorrectos: string[];
     maniobrasRealizadas: ManiobraEjecutada[];
     diagnosticoSellado: string | null;
     farmacoSeleccionado: string | null;
