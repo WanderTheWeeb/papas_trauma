@@ -5,6 +5,8 @@ import { EventBus } from '../EventBus';
 import { GameState } from '../state/GameState';
 import { Expediente, EXPEDIENTE_H } from '../objects/Expediente';
 import { SoundFx } from '../objects/SoundFx';
+import { StreakTracker } from '../objects/StreakTracker';
+import type { ScoreDesglosado } from '../data/types';
 import { PhaseHandler } from '../phases/PhaseHandler';
 import { RecepcionPhase } from '../phases/RecepcionPhase';
 import { ExploracionPhase } from '../phases/ExploracionPhase';
@@ -57,6 +59,24 @@ export class ConsultaScene extends Scene {
     private chitchatEvent?: Phaser.Time.TimerEvent;
     private chitchatPool: string[] = [];
 
+    // Activity tracking (idle trigger)
+    private lastActivityAt = 0;
+    private idleEvent?: Phaser.Time.TimerEvent;
+    private idleLines: string[] = [
+        'doc, ¿se quedó dormido?',
+        'sigo aquí ¿eh?',
+        'tengo huesos pero también tengo tiempo',
+        'doc, siento mucha calma… demasiada',
+        '¿hola? me oye doc',
+    ];
+
+    // Sans easter eggs (hover / click)
+    private hoverTimer?: Phaser.Time.TimerEvent;
+    private lastSansClickAt = 0;
+
+    // Streaks
+    public streaks!: StreakTracker;
+
     constructor() {
         super(SCENES.CONSULTA);
     }
@@ -96,8 +116,97 @@ export class ConsultaScene extends Scene {
         this.cameras.main.fadeIn(300, 7, 14, 24);
         this.startPhase('recepcion');
         this.startChitchat();
+        this.setupSansEasterEggs();
+        this.setupActivityTracker();
+
+        // Streak tracker
+        this.streaks = new StreakTracker(this);
+        this.streaks.onDirty(line => this.sansReact(line, 'doubt'));
+        this.streaks.onCombo(line => this.sansReact(line, 'ok'));
 
         EventBus.emit(EVENTS.CURRENT_SCENE_READY, this);
+    }
+
+    // ─── Sans easter eggs (hover / click on sprite) ─────────
+    private setupSansEasterEggs() {
+        if (!this.sansSprite) return;
+
+        // Approximate hit area around the sprite
+        this.sansSprite.setInteractive({ useHandCursor: true });
+
+        this.sansSprite.on('pointerover', () => {
+            if (this.hoverTimer) this.hoverTimer.remove();
+            this.hoverTimer = this.time.delayedCall(1100, () => {
+                if (this.reactionContainer) return;
+                const lines = [
+                    'deja de mirarme así doc',
+                    '¿algo en la cara? ah verdad, no tengo',
+                    'me incomodo si me ven mucho',
+                    '¿usted necesita lentes?',
+                ];
+                this.sansReact(lines[Math.floor(Math.random() * lines.length)], 'doubt');
+            });
+        });
+
+        this.sansSprite.on('pointerout', () => {
+            if (this.hoverTimer) {
+                this.hoverTimer.remove();
+                this.hoverTimer = undefined;
+            }
+        });
+
+        this.sansSprite.on('pointerdown', () => {
+            const now = this.time.now;
+            if (now - this.lastSansClickAt < 800) return; // throttle
+            this.lastSansClickAt = now;
+
+            const lines = [
+                'oye, no me toque sin permiso',
+                '¿quién hace eso?',
+                'doc, eso fue raro',
+                'sin protocolo no hay manoseo',
+                'auch (no me dolió pero igual)',
+            ];
+            this.sansReact(lines[Math.floor(Math.random() * lines.length)], 'pain');
+            // Light wiggle
+            if (this.sansSprite) {
+                this.tweens.add({
+                    targets: this.sansSprite,
+                    angle: { from: -4, to: 4 },
+                    duration: 50,
+                    yoyo: true,
+                    repeat: 4,
+                    onComplete: () => {
+                        if (this.sansSprite) this.sansSprite.angle = 0;
+                    },
+                });
+            }
+        });
+    }
+
+    // ─── Idle trigger ───────────────────────────────────────
+    private setupActivityTracker() {
+        this.lastActivityAt = this.time.now;
+
+        const bump = () => {
+            this.lastActivityAt = this.time.now;
+        };
+        this.input.on('pointerdown', bump);
+        this.input.on('dragend', bump);
+
+        this.idleEvent = this.time.addEvent({
+            delay: 3000,
+            loop: true,
+            callback: () => {
+                if (this.reactionContainer) return;
+                const idle = (this.time.now - this.lastActivityAt) / 1000;
+                if (idle >= 15) {
+                    const line = this.idleLines[Math.floor(Math.random() * this.idleLines.length)];
+                    this.sansReact(line, 'doubt');
+                    this.lastActivityAt = this.time.now; // don't spam
+                }
+            },
+        });
     }
 
     // ─── Static chrome / desk ────────────────────────────────
@@ -561,7 +670,21 @@ export class ConsultaScene extends Scene {
     }
 
     /** Public sound hook for phase handlers */
-    playSfx(name: 'thunk' | 'swoosh' | 'beep' | 'error' | 'pickup' | 'scratch' | 'tick') {
+    playSfx(
+        name:
+            | 'thunk'
+            | 'swoosh'
+            | 'beep'
+            | 'error'
+            | 'pickup'
+            | 'scratch'
+            | 'tick'
+            | 'paperRip'
+            | 'boneRattle'
+            | 'successDing'
+            | 'streakFanfare'
+            | 'crowdMurmur',
+    ) {
         switch (name) {
             case 'thunk':
                 SoundFx.thunk();
@@ -584,6 +707,21 @@ export class ConsultaScene extends Scene {
             case 'tick':
                 SoundFx.tick();
                 break;
+            case 'paperRip':
+                SoundFx.paperRip();
+                break;
+            case 'boneRattle':
+                SoundFx.boneRattle();
+                break;
+            case 'successDing':
+                SoundFx.successDing();
+                break;
+            case 'streakFanfare':
+                SoundFx.streakFanfare();
+                break;
+            case 'crowdMurmur':
+                SoundFx.crowdMurmur();
+                break;
         }
     }
 
@@ -595,28 +733,50 @@ export class ConsultaScene extends Scene {
     // ─── Chitchat: Sans says random pendejadas ──────────────
     private startChitchat() {
         this.chitchatPool = [
-            'doc, ¿usted ve fútbol?',
-            'el otro día soñé que era abogado',
-            '¿le dolió el pinchazo de la vacuna?',
-            'mi tía dice que la sábila cura todo',
-            'doc, ¿tiene dulces?',
-            '¿usted estudió mucho para esto?',
-            'extraño cuando la coca venía en vidrio',
-            '¿esto va a salir caro?',
-            'mi vecino se curó con yoga, ¿cree?',
-            'doc, tengo hambre la verdad',
-            '¿usted duerme bien con tantos turnos?',
-            'una vez vi un perro azul, juro',
-            'el wifi del hospital no jala bro',
-            '¿cuántos pacientes lleva hoy?',
-            'mi mamá dice que tomar agua arregla todo',
-            'doc, ¿me deja ver la radiografía?',
-            'eh… ¿hay café por aquí?',
-            '¿usted cree en los horóscopos?',
-            'mi primo es médico también, pero veterinario',
-            'qué frío hace, ¿no?',
-            'creo que voy a comprar un acuario',
-            'el doctor anterior me dijo lo mismo',
+            // chistes de huesos
+            'doc, ¿cuánto cobra? estoy bone-broke',
+            'tengo un esqueleto en mi clóset, literalmente',
+            'esto me está poniendo bone-tired',
+            '¿usted siente humerus de mí?',
+            'le tengo un chiste de costillas pero da risa',
+            'mi médula favorita es la espinal, claro',
+            '¿sabe por qué los huesos no pelean? no tienen agallas',
+            'soy un fan del rock… del cráneo',
+            'tibia y peroné suena a banda de cumbia',
+            'me crucé con un perro y me agarró por el fémur',
+            // sarcasmo
+            'wow, qué hospital tan… animado',
+            'le pago en silbidos doc',
+            'me trajeron pasta para el dolor pero no es la mía favorita',
+            '¿este es el plan VIP o el normal?',
+            'qué ambiente tan cálido. felicidades.',
+            'aún siento el aroma a desinfectante… delicioso',
+            '¿hay sala de espera para los huesos también?',
+            '¿siempre tarda así o es honor especial?',
+            'qué bonita la maquinita esa… ¿pita por mí?',
+            'doc, su café huele a esperanza muerta',
+            // existenciales pendejos
+            '¿usted alguna vez piensa en el calcio?',
+            'creo que solo soy marcador en una superficie',
+            'doc, los huesos no sueñan… ¿o sí?',
+            '¿qué pasa si me oxido?',
+            'a veces siento que ya viví esto antes',
+            'todos los días me levanto y nada tiene sentido',
+            'si dios existe, ¿hizo huesos primero o piel?',
+            '¿sabe cuántas células no soy? muchísimas',
+            '¿qué hay después de la muerte? espero que sopa',
+            'creo que mi alma vive en el coxis',
+            // preguntas absurdas
+            'doc, ¿usted puede tronarse los nudillos sin morir?',
+            '¿es verdad que los humanos sí tienen sangre? qué loco',
+            '¿la sopa es comida o bebida?',
+            '¿usted sabe nadar? yo no. me hundo.',
+            '¿cuántos huesos cabemos en un elevador?',
+            '¿el agua moja al agua?',
+            '¿usted le tiene miedo a los gatos? son sospechosos',
+            '¿puede una pierna correr sin cuerpo?',
+            '¿el aire pesa? porque me cansa cargarlo',
+            '¿usted cree en los fantasmas? no me juzgue',
         ];
 
         // First chitchat after a beat, then every 9–14s
@@ -707,6 +867,7 @@ export class ConsultaScene extends Scene {
     private advancePhase() {
         const idx = PHASE_ORDER.indexOf(this.currentPhaseId as never);
         const next = PHASE_ORDER[idx + 1];
+        SoundFx.successDing();
         SoundFx.swoosh();
         // fade-out, swap, fade-in
         this.tweens.add({
@@ -729,10 +890,36 @@ export class ConsultaScene extends Scene {
     }
 
     // ─── Evaluation overlay ──────────────────────────────────
+    private getTitle(score: ScoreDesglosado): { name: string; sub: string } {
+        if (score.total === 100) return { name: 'HUESO DE ORO', sub: 'mejor doc del turno' };
+        if (score.total >= 90) return { name: 'DOCTOR HOUSE', sub: 'gruñón pero efectivo' };
+        if (score.total >= 75) return { name: 'MÉDICO COMPETENTE', sub: 'no es House pero ahí va' };
+        if (score.diagnostic === 25 && score.symptom === 25)
+            return { name: 'OJO CLÍNICO', sub: 'el diagnóstico fue lo único bien' };
+        if (score.total >= 50) return { name: 'MÉDICO PROMEDIO', sub: 'el paciente vivirá. probablemente.' };
+        if (score.total >= 30) return { name: 'MÉDICO DE YELP', sub: '2 estrellas — "no recomendado"' };
+        if (score.total >= 10) return { name: 'CARNICERO CERTIFICADO', sub: 'huesos rotos al cliente' };
+        return { name: 'EXPEDIENTE DESASTROSO', sub: 'el paciente huyó por las escaleras' };
+    }
+
+    private getSansFarewell(total: number): string {
+        if (total >= 80) return 'gracias doc, le confío mis huesos';
+        if (total >= 50) return 'estuvo bien, supongo. me voy';
+        if (total >= 20) return 'creo que voy a buscar segunda opinión';
+        return 'le pago en silbidos doc… silbidos de hueso';
+    }
+
     private showEvaluation() {
         this.stopChitchat();
+        if (this.idleEvent) {
+            this.idleEvent.remove();
+            this.idleEvent = undefined;
+        }
         const score = GameState.evaluate();
         this.refreshFooter();
+
+        // Crowd murmur if score is great
+        if (score.total >= 80) SoundFx.crowdMurmur();
 
         const cx = GAME_WIDTH / 2;
         const cy = GAME_HEIGHT / 2;
@@ -743,7 +930,7 @@ export class ConsultaScene extends Scene {
 
         const overlay = this.add.container(cx, cy).setDepth(4001);
         const w = 720;
-        const h = 480;
+        const h = 560;
         const card = this.add.graphics();
         card.fillStyle(COLORS.paper, 0.98);
         card.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
@@ -791,6 +978,47 @@ export class ConsultaScene extends Scene {
                 .setLetterSpacing(2.4),
         );
 
+        // Title plate (gracioso, basado en score)
+        const title = this.getTitle(score);
+        const titleColorHex = score.total >= 75 ? COLORS_HEX.success : score.total >= 30 ? COLORS_HEX.warning : COLORS_HEX.danger;
+
+        const titleStripeTop = this.add.rectangle(0, -h / 2 + 218, 220, 1, 0xc9bfa6).setOrigin(0.5);
+        const titleText = this.add
+            .text(0, -h / 2 + 232, title.name, {
+                fontFamily: FONTS.display,
+                fontSize: '24px',
+                color: titleColorHex,
+                fontStyle: '700',
+            })
+            .setOrigin(0.5);
+        const titleSub = this.add
+            .text(0, -h / 2 + 256, title.sub, {
+                ...TYPE.paperLabel,
+                fontSize: '10px',
+                color: '#9a9080',
+                fontStyle: 'italic',
+            })
+            .setOrigin(0.5);
+        const titleStripeBot = this.add.rectangle(0, -h / 2 + 270, 220, 1, 0xc9bfa6).setOrigin(0.5);
+        overlay.add([titleStripeTop, titleText, titleSub, titleStripeBot]);
+
+        // Pop the title with a tiny scale + voice
+        titleText.setScale(0.6).setAlpha(0);
+        this.tweens.add({
+            targets: titleText,
+            scale: 1,
+            alpha: 1,
+            duration: 380,
+            delay: 600,
+            ease: 'Back.out',
+            onComplete: () => SoundFx.sansVoice(title.name.length),
+        });
+
+        // Sans farewell, drops in shortly after the overlay
+        this.time.delayedCall(1200, () => {
+            this.sansReact(this.getSansFarewell(score.total), score.total >= 50 ? 'thanks' : 'doubt');
+        });
+
         // Rows
         const rows: Array<[string, number]> = [
             ['SÍNTOMAS / FACTORES', score.symptom],
@@ -800,7 +1028,7 @@ export class ConsultaScene extends Scene {
         ];
 
         rows.forEach(([label, val], i) => {
-            const ry = -h / 2 + 240 + i * 32;
+            const ry = -h / 2 + 296 + i * 30;
             overlay.add(
                 this.add
                     .text(-w / 2 + 36, ry, label, {

@@ -423,9 +423,12 @@ export class ExploracionPhase extends PhaseHandler {
     private resolveManiobra(chip: ManiobraChip, timingOk: boolean) {
         if (!timingOk) {
             this.flashShoulder(COLORS.danger);
-            this.resultText.setText('timing fallido — intenta otra vez').setColor(COLORS_HEX.danger);
+            if (this.resultText && this.resultText.active) {
+                this.resultText
+                    .setText('timing fallido — intenta otra vez')
+                    .setColor(COLORS_HEX.danger);
+            }
             this.scene.playSfx('error');
-            // No Sans correction on missed timing — keep him quiet.
             return;
         }
 
@@ -443,18 +446,24 @@ export class ExploracionPhase extends PhaseHandler {
 
         if (expected) this.done++;
         this.flashShoulder(resultado === 'positivo' ? COLORS.danger : COLORS.success);
-        this.resultText
-            .setText(`${info.nombre} — ${resultado === 'positivo' ? '(+) POSITIVO' : '(−) negativo'}`)
-            .setColor(resultado === 'positivo' ? COLORS_HEX.danger : COLORS_HEX.success);
+        if (this.resultText && this.resultText.active) {
+            this.resultText
+                .setText(`${info.nombre} — ${resultado === 'positivo' ? '(+) POSITIVO' : '(−) negativo'}`)
+                .setColor(resultado === 'positivo' ? COLORS_HEX.danger : COLORS_HEX.success);
+        }
 
         if (resultado === 'positivo') {
-            this.scene.playSfx('error');
+            this.scene.playSfx('boneRattle');
             this.scene.sansReact('¡AGH! ahí…', 'pain');
         } else {
             this.scene.playSfx('beep');
             this.scene.sansReact('eso no me dolió', 'ok');
         }
         this.scene.playSfx('scratch');
+        // Both correct: counts as a win in the streak (they got the timing AND
+        // the maniobra contributes data). Wrong-timing earlier already returned.
+        if (expected) this.scene.streaks?.correct();
+        else this.scene.streaks?.wrong();
 
         this.scene.refreshFooter();
 

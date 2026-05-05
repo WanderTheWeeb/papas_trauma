@@ -282,28 +282,49 @@ export class SelladoPhase extends PhaseHandler {
             this.expediente.setDiagnostico(sello.diagnostico);
             this.locked = true;
             this.expediente.flashAccept();
+            this.scene.streaks?.correct();
 
-            // Stamp animation: shrink + tilt onto the expediente
+            const targetX = this.expediente.x;
+            const targetY = this.expediente.y - 60;
+
+            // Stamp animation: faster + bounce ease so it feels heavier
             this.scene.tweens.add({
                 targets: sello,
-                x: this.expediente.x,
-                y: this.expediente.y - 60,
+                x: targetX,
+                y: targetY,
                 scale: 0.7,
                 angle: -10,
-                alpha: 0.85,
-                duration: 280,
-                ease: 'Cubic.easeOut',
+                alpha: 0.92,
+                duration: 220,
+                ease: 'Bounce.easeOut',
                 onComplete: () => {
                     sello.consumed = true;
                     sello.disableInteractive();
-                    // THUNK happens at the moment of impact
                     this.scene.playSfx('thunk');
+                    // Heavy weight: camera shake at the moment of impact
+                    this.scene.cameras.main.shake(260, 0.006);
+
+                    // Permanent ink stamp ring near the expediente
+                    const localX = targetX - this.expediente.x;
+                    const localY = targetY - this.expediente.y;
+                    const stamp = this.scene.add.graphics();
+                    stamp.lineStyle(2, sello.color, 0.85);
+                    stamp.strokeCircle(this.expediente.x + localX, this.expediente.y + localY, 28);
+                    stamp.strokeCircle(this.expediente.x + localX, this.expediente.y + localY, 22);
+                    stamp.setDepth(950);
+                    // Soft fade-in
+                    stamp.setAlpha(0);
+                    this.scene.tweens.add({
+                        targets: stamp,
+                        alpha: 1,
+                        duration: 200,
+                    });
+                    this.own(stamp);
                 },
             });
 
-            // No Sans line — let the doctor own the diagnosis decision.
             this.scene.refreshFooter();
-            this.scene.time.delayedCall(680, () => this.onComplete());
+            this.scene.time.delayedCall(720, () => this.onComplete());
         } else {
             const localX = sello.x - this.expediente.x;
             const localY = sello.y - this.expediente.y;

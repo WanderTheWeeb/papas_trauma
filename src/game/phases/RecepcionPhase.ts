@@ -115,8 +115,7 @@ export class RecepcionPhase extends PhaseHandler {
             this.expediente.flashAccept();
             this.scene.playSfx('scratch');
             this.scene.playSfx('beep');
-            // No Sans reaction on correct factor — patient stays neutral.
-            // The expediente filling up is feedback enough.
+            this.scene.streaks?.correct();
         } else {
             const localX = card.x - this.expediente.x;
             const localY = card.y - this.expediente.y;
@@ -124,9 +123,8 @@ export class RecepcionPhase extends PhaseHandler {
             card.flashError();
             card.returnHome();
             this.expediente.flashReject();
-            this.scene.playSfx('error');
-            // No Sans reaction on wrong drop — let the doctor fail in peace.
-            // The ink stain on the expediente is the feedback.
+            this.scene.playSfx('paperRip');
+            this.scene.streaks?.wrong();
         }
 
         this.scene.refreshFooter();

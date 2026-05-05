@@ -170,6 +170,118 @@ class SoundFxClass {
         }
     }
 
+    /** Paper rip — bright burst with highpass + decay */
+    paperRip() {
+        if (this.muted) return;
+        const ctx = this.ensureCtx();
+        if (!ctx || !this.masterGain) return;
+
+        const src = ctx.createBufferSource();
+        src.buffer = this.getNoiseBuffer(ctx);
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(2500, ctx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.3);
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+
+        src.connect(filter).connect(gain).connect(this.masterGain);
+        src.start();
+        src.stop(ctx.currentTime + 0.45);
+    }
+
+    /** Bone rattle — rapid low clicks (60–90 Hz) */
+    boneRattle() {
+        if (this.muted) return;
+        const ctx = this.ensureCtx();
+        if (!ctx || !this.masterGain) return;
+
+        for (let i = 0; i < 5; i++) {
+            const t = ctx.currentTime + i * 0.045;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = 60 + Math.random() * 40;
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.exponentialRampToValueAtTime(0.35, t + 0.003);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+            osc.connect(gain).connect(this.masterGain);
+            osc.start(t);
+            osc.stop(t + 0.06);
+        }
+    }
+
+    /** Success ding — major triad arpeggio (C–E–G) */
+    successDing() {
+        if (this.muted) return;
+        const ctx = this.ensureCtx();
+        const master = this.masterGain;
+        if (!ctx || !master) return;
+
+        const notes = [523.25, 659.25, 783.99]; // C5 E5 G5
+        notes.forEach((freq, i) => {
+            const t = ctx.currentTime + i * 0.07;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.exponentialRampToValueAtTime(0.32, t + 0.008);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+            osc.connect(gain).connect(master);
+            osc.start(t);
+            osc.stop(t + 0.35);
+        });
+    }
+
+    /** Crowd murmur — soft low-band noise for "applause" feel */
+    crowdMurmur() {
+        if (this.muted) return;
+        const ctx = this.ensureCtx();
+        if (!ctx || !this.masterGain) return;
+
+        const src = ctx.createBufferSource();
+        src.buffer = this.getNoiseBuffer(ctx);
+        src.loop = true;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 800;
+        filter.Q.value = 0.6;
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.5);
+
+        src.connect(filter).connect(gain).connect(this.masterGain);
+        src.start();
+        src.stop(ctx.currentTime + 1.6);
+    }
+
+    /** Streak fanfare — 3 beeps rising in pitch */
+    streakFanfare() {
+        if (this.muted) return;
+        const ctx = this.ensureCtx();
+        const master = this.masterGain;
+        if (!ctx || !master) return;
+        [600, 800, 1100].forEach((f, i) => {
+            const t = ctx.currentTime + i * 0.08;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = f;
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.exponentialRampToValueAtTime(0.3, t + 0.005);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+            osc.connect(gain).connect(master);
+            osc.start(t);
+            osc.stop(t + 0.18);
+        });
+    }
+
     /** Pen scratch when something is written on the expediente */
     scratch() {
         if (this.muted) return;

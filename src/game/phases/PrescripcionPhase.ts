@@ -481,9 +481,11 @@ export class PrescripcionPhase extends PhaseHandler {
     private sendToDestino(destino: 'conservador' | 'urgente') {
         if (this.destinoSent) return;
         if (!this.selectedFarmaco || this.dosePrecision === 0) {
-            this.hintText
-                .setText('selecciona un fármaco y dosifica antes de enviar')
-                .setColor(COLORS_HEX.danger);
+            if (this.hintText && this.hintText.active) {
+                this.hintText
+                    .setText('selecciona un fármaco y dosifica antes de enviar')
+                    .setColor(COLORS_HEX.danger);
+            }
             return;
         }
         this.destinoSent = true;
@@ -494,9 +496,12 @@ export class PrescripcionPhase extends PhaseHandler {
             `${farmacoNombre} · ${destino === 'urgente' ? 'Referencia urgente' : 'Manejo conservador'}`,
         );
         this.expediente.flashAccept();
-        this.hintText
-            .setText(`expediente enviado — ${destino === 'urgente' ? 'bandeja B (urgente)' : 'bandeja A (conservador)'}`)
-            .setColor(COLORS_HEX.success);
+        if (this.hintText && this.hintText.active) {
+            this.hintText
+                .setText(`expediente enviado — ${destino === 'urgente' ? 'bandeja B (urgente)' : 'bandeja A (conservador)'}`)
+                .setColor(COLORS_HEX.success);
+        }
+        this.scene.streaks?.correct();
 
         this.scene.refreshFooter();
         this.scene.time.delayedCall(720, () => this.onComplete());
