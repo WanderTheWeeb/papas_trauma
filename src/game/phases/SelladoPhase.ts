@@ -185,9 +185,8 @@ export class SelladoPhase extends PhaseHandler {
             const row = Math.floor(i / cols);
             const x = trayX + col * (cardW + gap) + cardW / 2;
             const y = rowsY[row] ?? rowsY[0];
-            const sello = this.makeSello(x, y, d, cardW);
+            const sello = this.own(this.makeSello(x, y, d, cardW));
             this.sellos.push(sello);
-            this.bandeja.add(sello);
         });
     }
 

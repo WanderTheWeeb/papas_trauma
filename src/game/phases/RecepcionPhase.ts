@@ -61,9 +61,9 @@ export class RecepcionPhase extends PhaseHandler {
             const x = BANDEJA_X + col * (cardW + gap) + cardW / 2;
             const y = rowsY[row] ?? rowsY[0];
             const tilt = (i % 2 === 0 ? -1 : 1) * (1 + Math.random() * 1.5);
-            const card = new DraggableSticker(this.scene, x, y, value, tilt);
+            // Live in scene root so hit-areas resolve correctly
+            const card = this.own(new DraggableSticker(this.scene, x, y, value, tilt));
             this.cards.push(card);
-            this.bandeja.add(card);
 
             card.setAlpha(0);
             card.y = y + 12;

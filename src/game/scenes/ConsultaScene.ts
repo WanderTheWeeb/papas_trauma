@@ -54,6 +54,8 @@ export class ConsultaScene extends Scene {
     private clockSeconds = 23 * 3600 + 47 * 60; // starts at 23:47
     private clockEvent?: Phaser.Time.TimerEvent;
     private muteIcon?: GameObjects.Text;
+    private chitchatEvent?: Phaser.Time.TimerEvent;
+    private chitchatPool: string[] = [];
 
     constructor() {
         super(SCENES.CONSULTA);
@@ -93,6 +95,7 @@ export class ConsultaScene extends Scene {
 
         this.cameras.main.fadeIn(300, 7, 14, 24);
         this.startPhase('recepcion');
+        this.startChitchat();
 
         EventBus.emit(EVENTS.CURRENT_SCENE_READY, this);
     }
@@ -137,13 +140,13 @@ export class ConsultaScene extends Scene {
             .setOrigin(0, 1);
 
         if (caso) {
+            // Just the file number, no patient details (those live in the expediente)
             this.add
-                .text(
-                    GAME_WIDTH - m - 200,
-                    m - 22,
-                    `EXP. ${caso.id.toString().padStart(3, '0')}  ·  ${caso.paciente.nombre.toUpperCase()}  ·  ${caso.paciente.ocupacion.toUpperCase()}`,
-                    { ...TYPE.label, fontSize: '11px', color: COLORS_HEX.textMuted },
-                )
+                .text(GAME_WIDTH - m - 180, m - 22, `EXP. ${caso.id.toString().padStart(3, '0')}`, {
+                    ...TYPE.mono,
+                    fontSize: '11px',
+                    color: COLORS_HEX.textDim,
+                })
                 .setOrigin(1, 1);
         }
 
@@ -589,6 +592,62 @@ export class ConsultaScene extends Scene {
         SoundFx.sansVoice(charCount);
     }
 
+    // ─── Chitchat: Sans says random pendejadas ──────────────
+    private startChitchat() {
+        this.chitchatPool = [
+            'doc, ¿usted ve fútbol?',
+            'el otro día soñé que era abogado',
+            '¿le dolió el pinchazo de la vacuna?',
+            'mi tía dice que la sábila cura todo',
+            'doc, ¿tiene dulces?',
+            '¿usted estudió mucho para esto?',
+            'extraño cuando la coca venía en vidrio',
+            '¿esto va a salir caro?',
+            'mi vecino se curó con yoga, ¿cree?',
+            'doc, tengo hambre la verdad',
+            '¿usted duerme bien con tantos turnos?',
+            'una vez vi un perro azul, juro',
+            'el wifi del hospital no jala bro',
+            '¿cuántos pacientes lleva hoy?',
+            'mi mamá dice que tomar agua arregla todo',
+            'doc, ¿me deja ver la radiografía?',
+            'eh… ¿hay café por aquí?',
+            '¿usted cree en los horóscopos?',
+            'mi primo es médico también, pero veterinario',
+            'qué frío hace, ¿no?',
+            'creo que voy a comprar un acuario',
+            'el doctor anterior me dijo lo mismo',
+        ];
+
+        // First chitchat after a beat, then every 9–14s
+        const schedule = () => {
+            const delay = 9000 + Math.random() * 5000;
+            this.chitchatEvent = this.time.delayedCall(delay, () => {
+                this.firePendejada();
+                schedule();
+            });
+        };
+        // Initial delay so it doesn't talk over the opening motivo
+        this.time.delayedCall(6000, schedule);
+    }
+
+    private firePendejada() {
+        // Don't interrupt an active reaction
+        if (this.reactionContainer) return;
+        // Pick one and remove from pool so we don't repeat in the same session
+        if (this.chitchatPool.length === 0) return;
+        const idx = Math.floor(Math.random() * this.chitchatPool.length);
+        const line = this.chitchatPool.splice(idx, 1)[0];
+        this.sansReact(line, 'ok');
+    }
+
+    private stopChitchat() {
+        if (this.chitchatEvent) {
+            this.chitchatEvent.remove();
+            this.chitchatEvent = undefined;
+        }
+    }
+
     private computeFooterStatus(): string {
         const caso = GameState.getCaso();
         const t = GameState.getTicket();
@@ -671,6 +730,7 @@ export class ConsultaScene extends Scene {
 
     // ─── Evaluation overlay ──────────────────────────────────
     private showEvaluation() {
+        this.stopChitchat();
         const score = GameState.evaluate();
         this.refreshFooter();
 

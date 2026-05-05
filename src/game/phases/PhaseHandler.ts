@@ -32,6 +32,12 @@ export abstract class PhaseHandler {
         fn: (...a: unknown[]) => void;
     }> = [];
 
+    /**
+     * Live in scene root (not in `bandeja`/`aux`) so input hit-areas resolve
+     * correctly. `cleanup()` destroys these explicitly.
+     */
+    protected disposables: GameObjects.GameObject[] = [];
+
     constructor(ctx: PhaseContext) {
         this.scene = ctx.scene;
         this.caso = ctx.caso;
@@ -61,6 +67,22 @@ export abstract class PhaseHandler {
 
         this.bandeja.removeAll(true);
         this.aux.removeAll(true);
+
+        // Destroy scene-root disposables (interactive draggables)
+        for (const d of this.disposables) {
+            try {
+                d.destroy();
+            } catch {
+                /* noop */
+            }
+        }
+        this.disposables = [];
+    }
+
+    /** Track a scene-root object so cleanup() destroys it. */
+    protected own<T extends GameObjects.GameObject>(obj: T): T {
+        this.disposables.push(obj);
+        return obj;
     }
 
     /** Tracks an input listener so cleanup() can remove it automatically. */

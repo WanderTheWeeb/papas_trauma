@@ -192,9 +192,8 @@ export class ExploracionPhase extends PhaseHandler {
             const row = Math.floor(i / cols);
             const x = trayX + col * (cardW + gap) + cardW / 2;
             const y = rowsY[row] ?? rowsY[0];
-            const chip = this.makeChip(x, y, id, cardW);
+            const chip = this.own(this.makeChip(x, y, id, cardW));
             this.chips.push(chip);
-            this.bandeja.add(chip);
         });
     }
 

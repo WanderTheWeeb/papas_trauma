@@ -242,6 +242,7 @@ export class PrescripcionPhase extends PhaseHandler {
         cont.add([body, accentTop, stripes, brand, tipoBg, tipoText, visualG, name, dose, accentBot]);
         cont.setSize(w, h);
         cont.setInteractive({ useHandCursor: true });
+        this.own(cont);
 
         cont.on('pointerover', () => {
             if (this.selectedFarmaco === spec.id) return;
@@ -261,7 +262,6 @@ export class PrescripcionPhase extends PhaseHandler {
             this.scene.tweens.add({ targets: cont, y: y - 6, duration: 160, ease: 'Sine.out' });
         };
 
-        this.aux.add(cont);
         // Keep a ref to body as the visual "bg" for the active state hook
         this.farmacoButtons.push({ bg: body as unknown as GameObjects.Rectangle, id: spec.id, setActive });
     }
@@ -340,7 +340,7 @@ export class PrescripcionPhase extends PhaseHandler {
             .setOrigin(0, 0)
             .setStrokeStyle(1, COLORS.border)
             .setInteractive({ useHandCursor: true });
-        this.bandeja.add(btn);
+        this.own(btn);
 
         this.fillLabel = this.scene.add
             .text(bx + bw / 2, btnY + btnH / 2, 'MANTÉN PULSADO PARA LLENAR', {
@@ -424,7 +424,11 @@ export class PrescripcionPhase extends PhaseHandler {
         bg.on('pointerout', () => bg.setStrokeStyle(1, COLORS.border));
         bg.on('pointerdown', () => this.sendToDestino(destino));
 
-        this.bandeja.add([bg, badge, letter, t, s]);
+        this.own(bg);
+        this.own(badge);
+        this.own(letter);
+        this.own(t);
+        this.own(s);
     }
 
     private startFilling() {
