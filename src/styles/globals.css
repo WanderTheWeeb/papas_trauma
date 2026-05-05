@@ -15,16 +15,26 @@ html, body {
     background: var(--bg);
     color: #fff;
     font-family: 'IBM Plex Sans Condensed', system-ui, sans-serif;
+    /* Mobile niceties */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    overscroll-behavior: none;
+    touch-action: manipulation;
 }
 
 #__next, main {
     width: 100vw;
     height: 100vh;
+    /* Use the small viewport unit on mobile to avoid the iOS bottom bar issue */
+    width: 100svw;
+    height: 100svh;
 }
 
 #app {
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -43,4 +53,55 @@ html, body {
     display: block;
     max-width: 100%;
     max-height: 100%;
+    touch-action: none; /* let Phaser handle pointer events; no browser pan/zoom */
+}
+
+/* ─── Mobile rotate-to-landscape overlay ───────────────────── */
+#orient-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    color: #f2efe8;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    text-align: center;
+    padding: 32px;
+}
+
+#orient-overlay h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0 0 16px;
+    color: #00c9b1;
+    letter-spacing: 1px;
+}
+
+#orient-overlay p {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: #9bb0c7;
+    max-width: 320px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+#orient-overlay .icon {
+    font-size: 56px;
+    margin-bottom: 24px;
+    animation: rotate-hint 2.4s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes rotate-hint {
+    0%, 100% { transform: rotate(0deg); }
+    40%, 60% { transform: rotate(90deg); }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+    #orient-overlay { display: flex; }
 }

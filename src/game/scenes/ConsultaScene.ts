@@ -933,7 +933,7 @@ export class ConsultaScene extends Scene {
         }
         if (total >= 20) {
             return [
-                { line: 'doc… creo que la cagamos', mood: 'doubt' },
+                { line: 'doc… creo que esto no salió bien', mood: 'doubt' },
                 { line: 'voy a buscar segunda opinión', mood: 'doubt' },
                 { line: '¿usted siempre así o solo hoy?', mood: 'doubt' },
             ];
