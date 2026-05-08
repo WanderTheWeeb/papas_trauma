@@ -39,6 +39,8 @@ export class Preloader extends Scene {
         this.load.image('bg-station4', 'bg_station4.jpg');
         this.load.image('bg-evaluation', 'bg_evaluation.jpg');
         this.load.image('patient-sans', 'sans.png');
+        this.load.image('patient-zombie', 'zombie.png');
+        this.load.image('patient-pepsiman', 'pepsiman.png');
         this.load.image('aux-shoulder', 'dolor_hombro.png');
         this.load.image('aux-xray', 'x_ray.png');
     }

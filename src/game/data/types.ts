@@ -24,6 +24,7 @@ export interface Paciente {
 
 export interface CasoClinico {
     id: number;
+    personajeId: 'sans' | 'zombie' | 'pepsiman';
     paciente: Paciente;
     motivo: string;
     factoresRiesgo: string[];

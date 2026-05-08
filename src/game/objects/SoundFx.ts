@@ -142,7 +142,7 @@ class SoundFxClass {
      * Undertale text scroll. Length scales with the character count so
      * shorter reactions sound short and longer monologues sustain.
      */
-    sansVoice(charCount = 12) {
+    sansVoice(charCount = 12, baseFreq = 280) {
         if (this.muted) return;
         const ctx = this.ensureCtx();
         if (!ctx || !this.masterGain) return;
@@ -150,7 +150,6 @@ class SoundFxClass {
         const beeps = Math.min(20, Math.max(4, Math.floor(charCount / 2)));
         const beepDur = 0.055;
         const gap = 0.015;
-        const baseFreq = 280;
 
         for (let i = 0; i < beeps; i++) {
             const t = ctx.currentTime + i * (beepDur + gap);

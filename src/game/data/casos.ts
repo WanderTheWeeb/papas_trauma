@@ -1,9 +1,17 @@
 import type { CasoClinico } from './types';
 
+/**
+ * Cada caso está atado a un personaje (Sans / Zombie / Pepsiman).
+ * Mantén el `personajeId` consistente con el `paciente.nombre` y `ocupacion`.
+ *  - Sans     → tendinopatía recurrente del manguito (paciente frecuente)
+ *  - Zombie   → desgarros crónicos / degeneración (descomposición progresiva)
+ *  - Pepsiman → trauma agudo, deportivo, y DM2 ocupacional (ya saben por qué)
+ */
 export const CASOS_CLINICOS: CasoClinico[] = [
     {
         id: 1,
-        paciente: { nombre: 'Mujer, 58 años', ocupacion: 'Maestra' },
+        personajeId: 'sans',
+        paciente: { nombre: 'sans', ocupacion: 'Vigilante de bosque (tiempo parcial)' },
         motivo:
             'Dolor progresivo en región lateral del hombro derecho de 3 meses, empeora al alcanzar objetos altos y al acostarse sobre el lado afectado. Interfiere con el sueño.',
         factoresRiesgo: ['Edad > 50', 'Movimientos repetitivos'],
@@ -20,9 +28,10 @@ export const CASOS_CLINICOS: CasoClinico[] = [
     },
     {
         id: 2,
-        paciente: { nombre: 'Hombre, 45 años', ocupacion: 'Trabajador de construcción' },
+        personajeId: 'pepsiman',
+        paciente: { nombre: 'Pepsiman', ocupacion: 'Repartidor heroico de Pepsi' },
         motivo:
-            'Dolor agudo en hombro izquierdo después de levantar una viga pesada hace 2 días. Incapacidad para elevar el brazo lateralmente.',
+            'Dolor agudo en hombro izquierdo después de cargar un six-pack gigante de Pepsi y estamparse contra una pared hace 2 días. Incapacidad para elevar el brazo lateralmente.',
         factoresRiesgo: ['Inicio traumático', 'Esfuerzo agudo'],
         maniobras: [
             { id: 'droparm', resultado: 'positivo' },
@@ -37,7 +46,8 @@ export const CASOS_CLINICOS: CasoClinico[] = [
     },
     {
         id: 3,
-        paciente: { nombre: 'Mujer, 62 años', ocupacion: 'Hogar (DM2)' },
+        personajeId: 'pepsiman',
+        paciente: { nombre: 'Pepsiman', ocupacion: 'Embajador de marca (DM2 ocupacional)' },
         motivo:
             'Dolor difuso en hombro derecho de 6 meses de evolución, ha empeorado progresivamente.',
         factoresRiesgo: ['Diabetes Mellitus 2', 'Edad > 50'],
@@ -52,9 +62,10 @@ export const CASOS_CLINICOS: CasoClinico[] = [
     },
     {
         id: 4,
-        paciente: { nombre: 'Hombre, 52 años', ocupacion: 'Pintor profesional' },
+        personajeId: 'sans',
+        paciente: { nombre: 'sans', ocupacion: 'Comediante de stand-up nocturno' },
         motivo:
-            'Dolor crónico en hombro derecho de 8 meses al pintar techos. Sin mejoría tras 4 semanas de AINEs.',
+            'Dolor crónico en hombro derecho de 8 meses al pintar techos en su segundo trabajo. Sin mejoría tras 4 semanas de AINEs.',
         factoresRiesgo: ['Movimientos repetitivos', 'Falla a tratamiento inicial'],
         maniobras: [
             { id: 'jobe', resultado: 'positivo' },
@@ -69,9 +80,10 @@ export const CASOS_CLINICOS: CasoClinico[] = [
     },
     {
         id: 5,
-        paciente: { nombre: 'Mujer, 70 años', ocupacion: 'Jubilada' },
+        personajeId: 'zombie',
+        paciente: { nombre: 'Zombie', ocupacion: 'Jubilado del horario nocturno' },
         motivo:
-            'Dolor en hombro izquierdo de 1 año. Debilidad progresiva al peinarse y vestirse.',
+            'Dolor en hombro izquierdo de 1 año. Debilidad progresiva al peinarse y vestirse. (Los pocos pelos que le quedan).',
         factoresRiesgo: ['Edad avanzada', 'Evolución crónica'],
         maniobras: [{ id: 'lag_ri', resultado: 'positivo' }],
         rom:
@@ -84,7 +96,8 @@ export const CASOS_CLINICOS: CasoClinico[] = [
     },
     {
         id: 6,
-        paciente: { nombre: 'Hombre, 38 años', ocupacion: 'Tenista recreativo' },
+        personajeId: 'pepsiman',
+        paciente: { nombre: 'Pepsiman', ocupacion: 'Tenista patrocinado (servicio supersónico)' },
         motivo:
             'Dolor en hombro derecho de 2 meses, aparece específicamente al servir.',
         factoresRiesgo: ['Actividad deportiva repetitiva'],
@@ -101,7 +114,8 @@ export const CASOS_CLINICOS: CasoClinico[] = [
     },
     {
         id: 7,
-        paciente: { nombre: 'Mujer, 55 años', ocupacion: 'Hogar' },
+        personajeId: 'sans',
+        paciente: { nombre: 'sans', ocupacion: 'Centinela retirado / vendedor de hot dogs' },
         motivo:
             'Dolor de 4 meses, nocturno, interrumpe el sueño. Mejoría parcial con 6 semanas de fisioterapia, persiste limitación laboral.',
         factoresRiesgo: ['Edad > 50', 'Persistencia de dolor'],
@@ -118,7 +132,8 @@ export const CASOS_CLINICOS: CasoClinico[] = [
     },
     {
         id: 8,
-        paciente: { nombre: 'Hombre, 48 años', ocupacion: 'Trabajador de almacén' },
+        personajeId: 'zombie',
+        paciente: { nombre: 'Zombie', ocupacion: 'Cargador de aldeanos (5 años de servicio)' },
         motivo:
             'Dolor de 5 meses con movimientos repetitivos de elevación. Ultrasonido reporta desgarro parcial del supraespinoso.',
         factoresRiesgo: ['Movimientos de elevación', 'Desgarro parcial en imagen'],

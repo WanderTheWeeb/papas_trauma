@@ -7,6 +7,7 @@ import { Expediente, EXPEDIENTE_H } from '../objects/Expediente';
 import { SoundFx } from '../objects/SoundFx';
 import { StreakTracker } from '../objects/StreakTracker';
 import type { ScoreDesglosado } from '../data/types';
+import { getPersonaje, type Personaje } from '../data/personajes';
 import { PhaseHandler } from '../phases/PhaseHandler';
 import { RecepcionPhase } from '../phases/RecepcionPhase';
 import { ExploracionPhase } from '../phases/ExploracionPhase';
@@ -59,16 +60,12 @@ export class ConsultaScene extends Scene {
     private chitchatEvent?: Phaser.Time.TimerEvent;
     private chitchatPool: string[] = [];
 
+    // Personaje del caso actual (Sans / Zombie / Doña Carmen)
+    private personaje!: Personaje;
+
     // Activity tracking (idle trigger)
     private lastActivityAt = 0;
     private idleEvent?: Phaser.Time.TimerEvent;
-    private idleLines: string[] = [
-        'doc, ¿se quedó dormido?',
-        'sigo aquí ¿eh?',
-        'tengo huesos pero también tengo tiempo',
-        'doc, siento mucha calma… demasiada',
-        '¿hola? me oye doc',
-    ];
 
     // Sans easter eggs (hover / click)
     private hoverTimer?: Phaser.Time.TimerEvent;
@@ -82,6 +79,22 @@ export class ConsultaScene extends Scene {
     }
 
     create() {
+        // Reset per-scene state — Phaser reusa la instancia entre casos
+        this.stepIndicators = [];
+        this.sansSprite = undefined;
+        this.reactionContainer = undefined;
+        this.reactionTimer = undefined;
+        this.chitchatEvent = undefined;
+        this.chitchatPool = [];
+        this.idleEvent = undefined;
+        this.hoverTimer = undefined;
+        this.clockEvent = undefined;
+        this.muteIcon = undefined;
+        this.sendButton = undefined;
+        this.overlay = undefined;
+        this.currentPhase = null;
+        this.currentPhaseId = 'recepcion';
+
         // Make sure the case is started
         if (!GameState.getTicket()) GameState.startNewCase(0);
         const caso = GameState.getCaso();
@@ -100,6 +113,8 @@ export class ConsultaScene extends Scene {
             EventBus.emit(EVENTS.CURRENT_SCENE_READY, this);
             return;
         }
+
+        this.personaje = getPersonaje(caso.personajeId);
 
         this.drawWindow(caso.motivo);
         this.drawCounter();
@@ -138,12 +153,7 @@ export class ConsultaScene extends Scene {
             if (this.hoverTimer) this.hoverTimer.remove();
             this.hoverTimer = this.time.delayedCall(1100, () => {
                 if (this.reactionContainer) return;
-                const lines = [
-                    'deja de mirarme así doc',
-                    '¿algo en la cara? ah verdad, no tengo',
-                    'me incomodo si me ven mucho',
-                    '¿usted necesita lentes?',
-                ];
+                const lines = this.personaje.hoverLines;
                 this.sansReact(lines[Math.floor(Math.random() * lines.length)], 'doubt');
             });
         });
@@ -160,13 +170,7 @@ export class ConsultaScene extends Scene {
             if (now - this.lastSansClickAt < 800) return; // throttle
             this.lastSansClickAt = now;
 
-            const lines = [
-                'oye, no me toque sin permiso',
-                '¿quién hace eso?',
-                'doc, eso fue raro',
-                'sin protocolo no hay manoseo',
-                'auch (no me dolió pero igual)',
-            ];
+            const lines = this.personaje.pokeLines;
             this.sansReact(lines[Math.floor(Math.random() * lines.length)], 'pain');
             // Light wiggle
             if (this.sansSprite) {
@@ -201,7 +205,8 @@ export class ConsultaScene extends Scene {
                 if (this.reactionContainer) return;
                 const idle = (this.time.now - this.lastActivityAt) / 1000;
                 if (idle >= 15) {
-                    const line = this.idleLines[Math.floor(Math.random() * this.idleLines.length)];
+                    const lines = this.personaje.idleLines;
+                    const line = lines[Math.floor(Math.random() * lines.length)];
                     this.sansReact(line, 'doubt');
                     this.lastActivityAt = this.time.now; // don't spam
                 }
@@ -322,25 +327,30 @@ export class ConsultaScene extends Scene {
         this.sansX = colX;
         this.sansBaseY = baseY;
 
-        if (this.textures.exists('patient-sans')) {
-            const sans = this.add.image(colX, baseY, 'patient-sans').setOrigin(0.5, 1);
-            const tex = sans.texture.getSourceImage() as { width: number; height: number };
-            const tw = tex.width || sans.width;
-            const th = tex.height || sans.height;
+        // Fallback al sprite de sans si el del personaje no se cargó
+        const spriteKey = this.textures.exists(this.personaje.spriteKey)
+            ? this.personaje.spriteKey
+            : 'patient-sans';
+
+        if (this.textures.exists(spriteKey)) {
+            const sprite = this.add.image(colX, baseY, spriteKey).setOrigin(0.5, 1);
+            const tex = sprite.texture.getSourceImage() as { width: number; height: number };
+            const tw = tex.width || sprite.width;
+            const th = tex.height || sprite.height;
             const maxW = 260;
             const maxH = 270;
             const scale = Math.min(maxW / tw, maxH / th);
-            sans.setScale(scale);
+            sprite.setScale(scale);
 
             this.tweens.add({
-                targets: sans,
+                targets: sprite,
                 y: baseY - 4,
                 duration: 1800,
                 ease: 'Sine.inOut',
                 yoyo: true,
                 repeat: -1,
             });
-            this.sansSprite = sans;
+            this.sansSprite = sprite;
         }
 
         const caso = GameState.getCaso();
@@ -407,7 +417,7 @@ export class ConsultaScene extends Scene {
 
         this.time.delayedCall(startDelay, () => {
             // play one long voice burst across the typewriter
-            SoundFx.sansVoice(Math.min(40, fullText.length));
+            SoundFx.sansVoice(Math.min(40, fullText.length), this.personaje.voiceFreq);
             const ev = this.time.addEvent({
                 delay: 26,
                 repeat: fullText.length - 1,
@@ -415,7 +425,7 @@ export class ConsultaScene extends Scene {
                     i++;
                     motivoText.setText(fullText.slice(0, i));
                     // periodic voice retrigger so it keeps "talking"
-                    if (i % 18 === 0) SoundFx.sansVoice(18);
+                    if (i % 18 === 0) SoundFx.sansVoice(18, this.personaje.voiceFreq);
                 },
             });
             void ev;
@@ -637,7 +647,7 @@ export class ConsultaScene extends Scene {
         });
 
         // Voice
-        SoundFx.sansVoice(text.length);
+        SoundFx.sansVoice(text.length, this.personaje?.voiceFreq);
 
         // Wiggle Sans on pain
         if (mood === 'pain' && this.sansSprite) {
@@ -730,54 +740,9 @@ export class ConsultaScene extends Scene {
         SoundFx.sansVoice(charCount);
     }
 
-    // ─── Chitchat: Sans says random pendejadas ──────────────
+    // ─── Chitchat: el paciente suelta random pendejadas ─────
     private startChitchat() {
-        this.chitchatPool = [
-            // chistes de huesos
-            'doc, ¿cuánto cobra? estoy bone-broke',
-            'tengo un esqueleto en mi clóset, literalmente',
-            'esto me está poniendo bone-tired',
-            '¿usted siente humerus de mí?',
-            'le tengo un chiste de costillas pero da risa',
-            'mi médula favorita es la espinal, claro',
-            '¿sabe por qué los huesos no pelean? no tienen agallas',
-            'soy un fan del rock… del cráneo',
-            'tibia y peroné suena a banda de cumbia',
-            'me crucé con un perro y me agarró por el fémur',
-            // sarcasmo
-            'wow, qué hospital tan… animado',
-            'le pago en silbidos doc',
-            'me trajeron pasta para el dolor pero no es la mía favorita',
-            '¿este es el plan VIP o el normal?',
-            'qué ambiente tan cálido. felicidades.',
-            'aún siento el aroma a desinfectante… delicioso',
-            '¿hay sala de espera para los huesos también?',
-            '¿siempre tarda así o es honor especial?',
-            'qué bonita la maquinita esa… ¿pita por mí?',
-            'doc, su café huele a esperanza muerta',
-            // existenciales pendejos
-            '¿usted alguna vez piensa en el calcio?',
-            'creo que solo soy marcador en una superficie',
-            'doc, los huesos no sueñan… ¿o sí?',
-            '¿qué pasa si me oxido?',
-            'a veces siento que ya viví esto antes',
-            'todos los días me levanto y nada tiene sentido',
-            'si dios existe, ¿hizo huesos primero o piel?',
-            '¿sabe cuántas células no soy? muchísimas',
-            '¿qué hay después de la muerte? espero que sopa',
-            'creo que mi alma vive en el coxis',
-            // preguntas absurdas
-            'doc, ¿usted puede tronarse los nudillos sin morir?',
-            '¿es verdad que los humanos sí tienen sangre? qué loco',
-            '¿la sopa es comida o bebida?',
-            '¿usted sabe nadar? yo no. me hundo.',
-            '¿cuántos huesos cabemos en un elevador?',
-            '¿el agua moja al agua?',
-            '¿usted le tiene miedo a los gatos? son sospechosos',
-            '¿puede una pierna correr sin cuerpo?',
-            '¿el aire pesa? porque me cansa cargarlo',
-            '¿usted cree en los fantasmas? no me juzgue',
-        ];
+        this.chitchatPool = [...this.personaje.chitchat];
 
         // First chitchat after a beat, then every 9–14s
         const schedule = () => {
@@ -911,39 +876,12 @@ export class ConsultaScene extends Scene {
     }
 
     private getSansFarewellSequence(total: number): Array<{ line: string; mood: 'pain' | 'ok' | 'doubt' | 'thanks' }> {
-        if (total >= 90) {
-            return [
-                { line: 'doc, eso fue impecable', mood: 'thanks' },
-                { line: 'le voy a recomendar con mi familia', mood: 'thanks' },
-                { line: 'y eso que somos puro hueso', mood: 'ok' },
-            ];
-        }
-        if (total >= 75) {
-            return [
-                { line: 'gracias doc, le confío mis huesos', mood: 'thanks' },
-                { line: 'estuvo bien la consulta', mood: 'ok' },
-            ];
-        }
-        if (total >= 50) {
-            return [
-                { line: 'estuvo… raro, pero bueno', mood: 'doubt' },
-                { line: 'creo que sigo enfermo, ¿no?', mood: 'doubt' },
-                { line: 'igual gracias supongo', mood: 'ok' },
-            ];
-        }
-        if (total >= 20) {
-            return [
-                { line: 'doc… creo que esto no salió bien', mood: 'doubt' },
-                { line: 'voy a buscar segunda opinión', mood: 'doubt' },
-                { line: '¿usted siempre así o solo hoy?', mood: 'doubt' },
-            ];
-        }
-        return [
-            { line: 'doc, ¿quiere pasar un mal rato?', mood: 'pain' },
-            { line: 'porque YO acabo de pasar uno', mood: 'pain' },
-            { line: 'le pago en silbidos doc…', mood: 'doubt' },
-            { line: 'silbidos de hueso', mood: 'pain' },
-        ];
+        const f = this.personaje.farewells;
+        if (total >= 90) return f.excellent;
+        if (total >= 75) return f.good;
+        if (total >= 50) return f.mid;
+        if (total >= 20) return f.bad;
+        return f.terrible;
     }
 
     private showEvaluation() {
