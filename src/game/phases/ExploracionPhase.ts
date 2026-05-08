@@ -3,7 +3,7 @@ import { COLORS, COLORS_HEX, TYPE } from '../config/theme';
 import { MANIOBRAS_INFO } from '../data/casos';
 import { GameState } from '../state/GameState';
 import { PhaseHandler } from './PhaseHandler';
-import { BANDEJA_X, BANDEJA_Y, BANDEJA_W } from '../scenes/ConsultaScene';
+import { BANDEJA_X, BANDEJA_Y, BANDEJA_W, DESK_LEFT, DESK_RIGHT, DESK_TOP, DESK_BOTTOM } from '../scenes/ConsultaScene';
 import type { ManiobraId, ResultadoManiobra } from '../data/types';
 
 const SHOULDER_PANEL_H = 200;
@@ -209,28 +209,33 @@ export class ExploracionPhase extends PhaseHandler {
         const bg = this.scene.add
             .rectangle(0, 0, w, h, COLORS.surfaceHi, 0.92)
             .setStrokeStyle(1, COLORS.border);
-        const accent = this.scene.add.rectangle(-w / 2 + 5, 0, 4, h - 14, COLORS.warning);
+        // accent vertical centrado verticalmente (h-14 = 36, centrado en 0)
+        const accent = this.scene.add.rectangle(-w / 2 + 7, 0, 4, h - 14, COLORS.warning);
+        // Texto vertical centrado: name arriba (origen middle-left), sub abajo
         const name = this.scene.add
-            .text(-w / 2 + 14, -8, info.nombre, {
+            .text(-w / 2 + 16, -7, info.nombre, {
                 ...TYPE.chip,
                 fontSize: '12px',
             })
-            .setOrigin(0, 0);
+            .setOrigin(0, 0.5);
         const sub = this.scene.add
-            .text(-w / 2 + 14, 8, info.evalua, {
+            .text(-w / 2 + 16, 9, info.evalua, {
                 ...TYPE.label,
                 fontSize: '9px',
                 color: COLORS_HEX.textMuted,
             })
-            .setOrigin(0, 0);
+            .setOrigin(0, 0.5);
 
         c.add([bg, accent, name, sub]);
         c.bg = bg;
-        // Inflated hit area for mobile / fat-finger accuracy
-        const pad = 18;
-        c.setSize(w + pad * 2, h + pad * 2);
+        // Hit area centrado y simétrico, pad chico para fat-finger sin exagerar.
+        // El centro del hit area cae exactamente en el centro visual de la card.
+        const pad = 14;
+        const hitW = w + pad * 2;
+        const hitH = h + pad * 2;
+        c.setSize(hitW, hitH);
         c.setInteractive(
-            new Geom.Rectangle(-(w + pad * 2) / 2, -(h + pad * 2) / 2, w + pad * 2, h + pad * 2),
+            new Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH),
             Geom.Rectangle.Contains,
         );
         this.scene.input.setDraggable(c);
@@ -247,8 +252,10 @@ export class ExploracionPhase extends PhaseHandler {
         c.on('dragstart', () => c.setDepth(2000));
         c.on('drag', (_p: Input.Pointer, dx: number, dy: number) => {
             if (c.consumed || this.testing) return;
-            c.x = dx;
-            c.y = dy;
+            const halfW = (c.width || 140) / 2;
+            const halfH = (c.height || 56) / 2;
+            c.x = Math.max(DESK_LEFT + halfW, Math.min(DESK_RIGHT - halfW, dx));
+            c.y = Math.max(DESK_TOP + halfH, Math.min(DESK_BOTTOM - halfH, dy));
         });
         c.on('dragend', () => c.setDepth(0));
 

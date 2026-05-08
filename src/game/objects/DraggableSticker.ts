@@ -2,6 +2,19 @@ import { GameObjects, Geom, Input, Scene } from 'phaser';
 import { COLORS, COLORS_HEX, FONTS } from '../config/theme';
 
 /**
+ * Límites a los que el drag está restringido. Nada de cards volando hacia
+ * el sprite del paciente, el chrome o fuera de la mesa.
+ *  - left/right/top/bottom: rect mundial donde el centro de la carta puede ir
+ *  - el caller pasa el rect; si no, se queda libre.
+ */
+export interface DragBounds {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+}
+
+/**
  * Paper card the player picks up off the desk and slides into the expediente.
  * The container itself never rotates — only an inner visual group does — so
  * the hit area stays aligned with what the player sees.
@@ -16,6 +29,9 @@ export class DraggableSticker extends GameObjects.Container {
     private homeAngle: number;
     public consumed = false;
     public readonly value: string;
+    private dragBounds?: DragBounds;
+    private halfW = 0;
+    private halfH = 0;
 
     constructor(scene: Scene, x: number, y: number, value: string, tilt = 0) {
         super(scene, x, y);
@@ -40,13 +56,21 @@ export class DraggableSticker extends GameObjects.Container {
         const padY = 12;
         const w = 168;
         const h = Math.max(50, this.label.height + padY * 2);
+        this.halfW = w / 2;
+        this.halfH = h / 2;
+        void padX;
 
-        // Visual group — this is what tilts/scales for the "physical paper" feel
+        // Tilt va en el container EXTERNO (no en visual) para que el hit area
+        // y el visual coincidan. La sombra también va simétrica para que el
+        // centro óptico de la card caiga en (0,0) del container y no se vea
+        // desplazada abajo-derecha.
+        this.angle = tilt;
+
+        // Visual group — solo para escala animada; sin rotación propia
         this.visual = scene.add.container(0, 0);
-        this.visual.setAngle(tilt);
 
         const shadow = scene.add
-            .rectangle(2, 4, w, h, 0x000000, 0.45)
+            .rectangle(0, 2, w, h, 0x000000, 0.35)
             .setOrigin(0.5);
 
         this.bg = scene.add
@@ -68,12 +92,15 @@ export class DraggableSticker extends GameObjects.Container {
         this.visual.add([shadow, this.bg, this.accent, dogear, this.label]);
         this.add(this.visual);
 
-        // Hit area: generously bigger than the card so fat-fingers on mobile
-        // still grab it. Visual stays the same; only the touch zone grows.
-        const pad = 22;
-        this.setSize(w + pad * 2, h + pad * 2);
+        // Hit area centrado y simétrico, ligeramente más grande que el visual
+        // para fat-finger en mobile. Cualquier asimetría aquí causa que la card
+        // "se agarre desde un lado" — manténlo simétrico.
+        const pad = 14;
+        const hitW = w + pad * 2;
+        const hitH = h + pad * 2;
+        this.setSize(hitW, hitH);
         this.setInteractive(
-            new Geom.Rectangle(-(w + pad * 2) / 2, -(h + pad * 2) / 2, w + pad * 2, h + pad * 2),
+            new Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH),
             Geom.Rectangle.Contains,
         );
 
@@ -92,28 +119,41 @@ export class DraggableSticker extends GameObjects.Container {
 
         this.on('dragstart', () => {
             this.setDepth(2000);
-            scene.tweens.add({ targets: this.visual, scale: 1.08, angle: 0, duration: 120 });
+            // Endereza el outer container y agranda el visual para feedback
+            scene.tweens.add({ targets: this, angle: 0, duration: 120 });
+            scene.tweens.add({ targets: this.visual, scale: 1.08, duration: 120 });
         });
 
         this.on('drag', (_p: Input.Pointer, dx: number, dy: number) => {
             if (this.consumed) return;
-            this.x = dx;
-            this.y = dy;
+            const b = this.dragBounds;
+            if (b) {
+                const minX = b.left + this.halfW;
+                const maxX = b.right - this.halfW;
+                const minY = b.top + this.halfH;
+                const maxY = b.bottom - this.halfH;
+                this.x = Math.max(minX, Math.min(maxX, dx));
+                this.y = Math.max(minY, Math.min(maxY, dy));
+            } else {
+                this.x = dx;
+                this.y = dy;
+            }
         });
 
         this.on('dragend', () => {
             this.setDepth(0);
             if (!this.consumed) {
-                scene.tweens.add({
-                    targets: this.visual,
-                    scale: 1,
-                    angle: this.homeAngle,
-                    duration: 140,
-                });
+                scene.tweens.add({ targets: this.visual, scale: 1, duration: 140 });
+                scene.tweens.add({ targets: this, angle: this.homeAngle, duration: 140 });
             }
         });
 
         scene.add.existing(this);
+    }
+
+    /** Restringe el drag al rectángulo dado (coordenadas mundo). */
+    setDragBounds(bounds: DragBounds) {
+        this.dragBounds = bounds;
     }
 
     returnHome() {
@@ -121,13 +161,9 @@ export class DraggableSticker extends GameObjects.Container {
             targets: this,
             x: this.homeX,
             y: this.homeY,
-            duration: 240,
-            ease: 'Back.easeOut',
-        });
-        this.scene.tweens.add({
-            targets: this.visual,
             angle: this.homeAngle,
             duration: 240,
+            ease: 'Back.easeOut',
         });
     }
 

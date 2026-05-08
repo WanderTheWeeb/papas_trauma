@@ -3,7 +3,7 @@ import { COLORS, COLORS_HEX, TYPE } from '../config/theme';
 import { DIAGNOSTICOS_DISPONIBLES } from '../data/casos';
 import { GameState } from '../state/GameState';
 import { PhaseHandler } from './PhaseHandler';
-import { BANDEJA_X, BANDEJA_Y, BANDEJA_W } from '../scenes/ConsultaScene';
+import { BANDEJA_X, BANDEJA_Y, BANDEJA_W, DESK_LEFT, DESK_RIGHT, DESK_TOP, DESK_BOTTOM } from '../scenes/ConsultaScene';
 
 const DIAG_COLORS: Record<string, number> = {
     'Tendinopatía del manguito rotador': 0x4a90e2,
@@ -219,11 +219,14 @@ export class SelladoPhase extends PhaseHandler {
             .setOrigin(0.5);
 
         c.add([fill, ring, label]);
-        // Inflated hit area for mobile / fat-finger accuracy
-        const pad = 18;
-        c.setSize(w + pad * 2, h + pad * 2);
+        // Hit area centrado y simétrico — todos los hijos están a (0,0), así
+        // que el centro del hit area coincide con el centro visual del sello.
+        const pad = 14;
+        const hitW = w + pad * 2;
+        const hitH = h + pad * 2;
+        c.setSize(hitW, hitH);
         c.setInteractive(
-            new Geom.Rectangle(-(w + pad * 2) / 2, -(h + pad * 2) / 2, w + pad * 2, h + pad * 2),
+            new Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH),
             Geom.Rectangle.Contains,
         );
         this.scene.input.setDraggable(c);
@@ -240,8 +243,10 @@ export class SelladoPhase extends PhaseHandler {
         c.on('dragstart', () => c.setDepth(2000));
         c.on('drag', (_p: Input.Pointer, dx: number, dy: number) => {
             if (c.consumed || this.locked) return;
-            c.x = dx;
-            c.y = dy;
+            const halfW = (c.width || 160) / 2;
+            const halfH = (c.height || 56) / 2;
+            c.x = Math.max(DESK_LEFT + halfW, Math.min(DESK_RIGHT - halfW, dx));
+            c.y = Math.max(DESK_TOP + halfH, Math.min(DESK_BOTTOM - halfH, dy));
         });
         c.on('dragend', () => c.setDepth(0));
 

@@ -4,7 +4,7 @@ import { FACTORES_RIESGO_DISPONIBLES } from '../data/casos';
 import { GameState } from '../state/GameState';
 import { DraggableSticker } from '../objects/DraggableSticker';
 import { PhaseHandler } from './PhaseHandler';
-import { BANDEJA_X, BANDEJA_Y, BANDEJA_W } from '../scenes/ConsultaScene';
+import { BANDEJA_X, BANDEJA_Y, BANDEJA_W, DESK_LEFT, DESK_RIGHT, DESK_TOP, DESK_BOTTOM } from '../scenes/ConsultaScene';
 
 const REQUIRED_KEY = 'phase-recepcion-drag-listener';
 
@@ -66,6 +66,7 @@ export class RecepcionPhase extends PhaseHandler {
             const tilt = (i % 2 === 0 ? -1 : 1) * (1 + Math.random() * 1.5);
             // Live in scene root so hit-areas resolve correctly
             const card = this.own(new DraggableSticker(this.scene, x, y, value, tilt));
+            card.setDragBounds({ left: DESK_LEFT, right: DESK_RIGHT, top: DESK_TOP, bottom: DESK_BOTTOM });
             this.cards.push(card);
 
             card.setAlpha(0);

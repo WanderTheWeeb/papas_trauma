@@ -34,6 +34,12 @@ export interface CasoClinico {
     manejoCorrecto: string;
     referenciaUrgente: boolean;
     feedback: string;
+    /**
+     * Frases que el paciente puede soltar durante la consulta y que sí
+     * contienen información clínica útil (señalan factores de riesgo,
+     * timing o gatillo). Se mezclan con el chitchat ambiental del personaje.
+     */
+    pistas?: string[];
 }
 
 export interface ManiobraEjecutada {

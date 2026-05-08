@@ -8,6 +8,7 @@ import { SoundFx } from '../objects/SoundFx';
 import { StreakTracker } from '../objects/StreakTracker';
 import type { ScoreDesglosado } from '../data/types';
 import { getPersonaje, type Personaje } from '../data/personajes';
+import { ChatLog } from '../objects/ChatLog';
 import { PhaseHandler } from '../phases/PhaseHandler';
 import { RecepcionPhase } from '../phases/RecepcionPhase';
 import { ExploracionPhase } from '../phases/ExploracionPhase';
@@ -59,8 +60,12 @@ export class ConsultaScene extends Scene {
     private muteIcon?: GameObjects.Text;
     private chitchatEvent?: Phaser.Time.TimerEvent;
     private chitchatPool: string[] = [];
+    /** Set de líneas que son pistas clínicas (relevantes), para marcar en el chat */
+    private pistasSet: Set<string> = new Set();
+    /** Panel de transcripción de la consulta */
+    private chatLog?: ChatLog;
 
-    // Personaje del caso actual (Sans / Zombie / Doña Carmen)
+    // Personaje del caso actual (Sans / Zombie / Pepsiman)
     private personaje!: Personaje;
 
     // Activity tracking (idle trigger)
@@ -94,6 +99,11 @@ export class ConsultaScene extends Scene {
         this.overlay = undefined;
         this.currentPhase = null;
         this.currentPhaseId = 'recepcion';
+        this.pistasSet = new Set();
+        if (this.chatLog) {
+            this.chatLog.destroy();
+            this.chatLog = undefined as ChatLog | undefined;
+        }
 
         // Make sure the case is started
         if (!GameState.getTicket()) GameState.startNewCase(0);
@@ -115,9 +125,19 @@ export class ConsultaScene extends Scene {
         }
 
         this.personaje = getPersonaje(caso.personajeId);
+        // Construye el set de pistas para este caso (líneas marcadas como relevantes)
+        this.pistasSet = new Set(caso.pistas ?? []);
 
         this.drawWindow(caso.motivo);
         this.drawCounter();
+        this.buildChatLog();
+        // El "motivo" inicial es información clínica de oro — entra como pista
+        this.chatLog?.add({
+            text: caso.motivo,
+            mood: 'doubt',
+            relevant: true,
+            timestamp: this.clockLabel(),
+        });
 
         // Containers (children of the scene's display list, not the desk graphics)
         this.aux = this.add.container(0, 0);
@@ -139,7 +159,30 @@ export class ConsultaScene extends Scene {
         this.streaks.onDirty(line => this.sansReact(line, 'doubt'));
         this.streaks.onCombo(line => this.sansReact(line, 'ok'));
 
+        // Dev toggle: presiona D para visualizar hit areas de los draggables
+        if (this.input.keyboard) {
+            this.input.keyboard.on('keydown-D', () => this.toggleInputDebug());
+        }
+
         EventBus.emit(EVENTS.CURRENT_SCENE_READY, this);
+    }
+
+    private inputDebugOn = false;
+    private toggleInputDebug() {
+        const sys = (this.input as unknown as {
+            enableDebug: (go: GameObjects.GameObject, color?: number) => void;
+            removeDebug: (go: GameObjects.GameObject) => void;
+        });
+        // Recorre todos los GameObjects interactivos del display list
+        const all = this.children.list as GameObjects.GameObject[];
+        const interactive = all.filter(go => (go as unknown as { input?: unknown }).input);
+        if (this.inputDebugOn) {
+            interactive.forEach(go => sys.removeDebug(go));
+            this.inputDebugOn = false;
+        } else {
+            interactive.forEach(go => sys.enableDebug(go, 0xff00ff));
+            this.inputDebugOn = true;
+        }
     }
 
     // ─── Sans easter eggs (hover / click on sprite) ─────────
@@ -576,6 +619,15 @@ export class ConsultaScene extends Scene {
      * diegetic feedback when the player succeeds or fails an interaction.
      */
     sansReact(text: string, mood: 'pain' | 'ok' | 'doubt' | 'thanks' = 'ok') {
+        // Push al transcript SIEMPRE, incluso si el sprite no existe — el chat
+        // es la fuente de verdad del diálogo de la consulta.
+        this.chatLog?.add({
+            text,
+            mood,
+            relevant: this.pistasSet.has(text),
+            timestamp: this.clockLabel(),
+        });
+
         if (!this.sansSprite) return;
 
         // Tear down any previous reaction
@@ -740,9 +792,21 @@ export class ConsultaScene extends Scene {
         SoundFx.sansVoice(charCount);
     }
 
+    private buildChatLog() {
+        // Panel a la derecha del speech-bubble del paciente
+        const x = 1190;
+        const y = 80;
+        const w = 370;
+        const h = 350;
+        this.chatLog = new ChatLog(this, x, y, w, h);
+    }
+
     // ─── Chitchat: el paciente suelta random pendejadas ─────
     private startChitchat() {
-        this.chitchatPool = [...this.personaje.chitchat];
+        // Mezcla pistas del caso con el chitchat ambiental del personaje
+        const caso = GameState.getCaso();
+        const pistas = caso?.pistas ?? [];
+        this.chitchatPool = [...pistas, ...this.personaje.chitchat];
 
         // First chitchat after a beat, then every 9–14s
         const schedule = () => {
