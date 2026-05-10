@@ -1,4 +1,4 @@
-import { GameObjects, Scene } from 'phaser';
+import { GameObjects, Geom, Scene } from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, TYPE } from '../config/theme';
 import { EVENTS, GAME_HEIGHT, GAME_WIDTH, SCENES } from '../config/constants';
 import { EventBus } from '../EventBus';
@@ -9,6 +9,7 @@ import { StreakTracker } from '../objects/StreakTracker';
 import type { ScoreDesglosado } from '../data/types';
 import { getPersonaje, type Personaje } from '../data/personajes';
 import { ChatLog } from '../objects/ChatLog';
+import { TutorialGuide } from '../objects/TutorialGuide';
 import { PhaseHandler } from '../phases/PhaseHandler';
 import { RecepcionPhase } from '../phases/RecepcionPhase';
 import { ExploracionPhase } from '../phases/ExploracionPhase';
@@ -78,6 +79,10 @@ export class ConsultaScene extends Scene {
 
     // Streaks
     public streaks!: StreakTracker;
+
+    // Tutorial mode
+    private tutorial?: TutorialGuide;
+    private tutorialActive = false;
 
     constructor() {
         super(SCENES.CONSULTA);
@@ -149,7 +154,15 @@ export class ConsultaScene extends Scene {
         this.drawFooter();
 
         this.cameras.main.fadeIn(300, 7, 14, 24);
-        this.startPhase('recepcion');
+        // Tutorial mode: el primer caso es la guía paso a paso
+        this.tutorialActive = GameState.isTutorial();
+        if (this.tutorialActive) {
+            this.tutorial = new TutorialGuide(this);
+            // Tip de bienvenida antes del flujo, una sola vez por sesión-tutorial
+            this.showWelcomeTutorial(() => this.startPhase('recepcion'));
+        } else {
+            this.startPhase('recepcion');
+        }
         this.startChitchat();
         this.setupSansEasterEggs();
         this.setupActivityTracker();
@@ -189,8 +202,22 @@ export class ConsultaScene extends Scene {
     private setupSansEasterEggs() {
         if (!this.sansSprite) return;
 
-        // Approximate hit area around the sprite
-        this.sansSprite.setInteractive({ useHandCursor: true });
+        // Hit area reducido al cuerpo del sprite. Para Image el Rectangle del
+        // hitArea va en coords de TEXTURA (top-left = 0,0), NO centrado en el
+        // origen. La textura es tw × th; cubrimos el 60% central horizontal y
+        // el 75% vertical empezando un 10% abajo del top.
+        const tex = this.sansSprite.texture.getSourceImage() as { width: number; height: number };
+        const tw = tex.width || this.sansSprite.width;
+        const th = tex.height || this.sansSprite.height;
+        const bodyW = tw * 0.6;
+        const bodyH = th * 0.75;
+        const bodyX = (tw - bodyW) / 2;
+        const bodyY = th * 0.1;
+        this.sansSprite.setInteractive({
+            hitArea: new Geom.Rectangle(bodyX, bodyY, bodyW, bodyH),
+            hitAreaCallback: Geom.Rectangle.Contains,
+            useHandCursor: true,
+        });
 
         this.sansSprite.on('pointerover', () => {
             if (this.hoverTimer) this.hoverTimer.remove();
@@ -870,6 +897,62 @@ export class ConsultaScene extends Scene {
         });
 
         this.refreshFooter();
+
+        // Tip del tutorial al entrar a cada fase
+        if (this.tutorialActive && this.tutorial) {
+            this.time.delayedCall(360, () => this.showPhaseTutorial(id));
+        }
+    }
+
+    private showWelcomeTutorial(onClose: () => void) {
+        if (!this.tutorial) return onClose();
+        this.tutorial.show(
+            {
+                n: '00',
+                title: 'BIENVENIDO AL TURNO',
+                body:
+                    'Eres el doctor del turno nocturno. Vas a atender a SANS — un esqueleto vigilante con dolor en el hombro derecho.\n\nEl caso pasa por 4 fases. Te guiaré en cada una. Lee al paciente, marca lo importante, examínalo y receta. ¿Listo?',
+                cta: '· presiona ENTENDIDO para abrir el expediente',
+            },
+            onClose,
+        );
+    }
+
+    private showPhaseTutorial(id: 'recepcion' | 'exploracion' | 'sellado' | 'prescripcion') {
+        if (!this.tutorial) return;
+        const tips: Record<typeof id, { n: string; title: string; body: string; cta?: string }> = {
+            recepcion: {
+                n: '01',
+                title: 'RECEPCIÓN  ·  FACTORES DE RIESGO',
+                body:
+                    'Lee lo que dice Sans (motivo arriba y TRANSCRIPCIÓN a la derecha). Las líneas con ✦ son pistas reales, el resto es ruido.\n\nArrastra al EXPEDIENTE solo las tarjetas que apliquen. Para Sans las correctas son: "Edad > 50" y "Movimientos repetitivos". Si te equivocas, la tarjeta queda manchando el expediente.',
+                cta: '· objetivo: 2 factores correctos',
+            },
+            exploracion: {
+                n: '02',
+                title: 'EXPLORACIÓN FÍSICA  ·  MANIOBRAS',
+                body:
+                    'Arrastra cada maniobra al hombro del paciente. Cuando aparezca la barra de tiempo, haz clic mientras la aguja esté en la zona verde central.\n\nPara Sans las maniobras útiles son HAWKINS y ARCO DOLOROSO. Las demás no aportan — no te distraigas.',
+                cta: '· clic en la zona verde para acertar el timing',
+            },
+            sellado: {
+                n: '03',
+                title: 'SELLADO DEL DIAGNÓSTICO',
+                body:
+                    'Con base en lo que viste, escoge UN sello y arrástralo al expediente. Sans tiene un cuadro clásico de TENDINOPATÍA DEL MANGUITO ROTADOR (dolor crónico, ROM pasivo completo, arco doloroso 60–120°).\n\nSolo puedes sellar una vez — escoge bien.',
+                cta: '· un sello, una sola decisión',
+            },
+            prescripcion: {
+                n: '04',
+                title: 'PRESCRIPCIÓN  ·  DESTINO',
+                body:
+                    'Selecciona un AINE (no inyección), ajusta los días al rango óptimo (7–14, número en verde) y envía a destino A · CONSERVADOR (fisioterapia).\n\nSans no necesita cirugía urgente — manejarlo bien hoy le evita problemas.',
+                cta: '· fármaco → días → destino',
+            },
+        };
+        this.tutorial.show(tips[id], () => {
+            // No-op: el dim ya se destruyó, el jugador interactúa con la fase
+        });
     }
 
     private makePhase(id: 'recepcion' | 'exploracion' | 'sellado' | 'prescripcion'): PhaseHandler {
@@ -1141,6 +1224,10 @@ export class ConsultaScene extends Scene {
             this.clockEvent.remove();
             this.clockEvent = undefined;
         }
+        // El tutorial es solo para el caso de prueba — al pasar al siguiente lo
+        // apagamos para que el jugador juegue normal.
+        GameState.setTutorial(false);
+        this.tutorial?.destroy();
         this.cameras.main.fadeOut(260, 7, 14, 24);
         this.cameras.main.once('camerafadeoutcomplete', () => {
             GameState.nextCase();

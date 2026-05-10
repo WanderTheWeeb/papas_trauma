@@ -185,7 +185,9 @@ export class ExploracionPhase extends PhaseHandler {
         const cols = 3;
         const cardW = 188;
         const gap = 14;
-        const rowsY = [trayY + 28, trayY + 88];
+        // Más separación vertical entre filas: los hit areas con pad para dedos
+        // no deben traslaparse o se agarra el chip equivocado.
+        const rowsY = [trayY + 36, trayY + 116];
 
         ids.forEach((id, i) => {
             const col = i % cols;
@@ -206,6 +208,10 @@ export class ExploracionPhase extends PhaseHandler {
         c.homeY = y;
 
         const h = 50;
+        // Visual half-extents — usados para el clamp de drag. NO usar c.width/c.height,
+        // que son del hit area (visual + pad) y harían saltar la card al recogerla.
+        const visualHalfW = w / 2;
+        const visualHalfH = h / 2;
         const bg = this.scene.add
             .rectangle(0, 0, w, h, COLORS.surfaceHi, 0.92)
             .setStrokeStyle(1, COLORS.border);
@@ -228,11 +234,9 @@ export class ExploracionPhase extends PhaseHandler {
 
         c.add([bg, accent, name, sub]);
         c.bg = bg;
-        // Hit area centrado y simétrico, pad chico para fat-finger sin exagerar.
-        // El centro del hit area cae exactamente en el centro visual de la card.
-        const pad = 14;
-        const hitW = w + pad * 2;
-        const hitH = h + pad * 2;
+        // Hit area = pixel-perfect con el visual. Cero pad invisible.
+        const hitW = w;
+        const hitH = h;
         c.setSize(hitW, hitH);
         c.setInteractive(
             new Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH),
@@ -252,10 +256,8 @@ export class ExploracionPhase extends PhaseHandler {
         c.on('dragstart', () => c.setDepth(2000));
         c.on('drag', (_p: Input.Pointer, dx: number, dy: number) => {
             if (c.consumed || this.testing) return;
-            const halfW = (c.width || 140) / 2;
-            const halfH = (c.height || 56) / 2;
-            c.x = Math.max(DESK_LEFT + halfW, Math.min(DESK_RIGHT - halfW, dx));
-            c.y = Math.max(DESK_TOP + halfH, Math.min(DESK_BOTTOM - halfH, dy));
+            c.x = Math.max(DESK_LEFT + visualHalfW, Math.min(DESK_RIGHT - visualHalfW, dx));
+            c.y = Math.max(DESK_TOP + visualHalfH, Math.min(DESK_BOTTOM - visualHalfH, dy));
         });
         c.on('dragend', () => c.setDepth(0));
 

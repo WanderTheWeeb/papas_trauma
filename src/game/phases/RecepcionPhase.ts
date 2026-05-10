@@ -56,7 +56,10 @@ export class RecepcionPhase extends PhaseHandler {
         const cols = 3;
         const cardW = 168;
         const gap = 30;
-        const rowsY = [BANDEJA_Y + 40, BANDEJA_Y + 130];
+        // Más separación vertical entre filas para que los hit areas (con pad
+        // grande para dedos) no se traslapen y el jugador agarre la card de
+        // arriba creyendo agarrar la de abajo.
+        const rowsY = [BANDEJA_Y + 50, BANDEJA_Y + 170];
 
         options.forEach((value, i) => {
             const col = i % cols;
@@ -81,10 +84,19 @@ export class RecepcionPhase extends PhaseHandler {
             });
         });
 
-        // Drag listener
+        // Drag listener — el objeto arrastrado puede ser el container
+        // (DraggableSticker) o su Zone hijo. En el caso del Zone, subimos al
+        // parentContainer para encontrar el sticker.
         this.dragHandler = (_p: unknown, obj: unknown) => {
-            if (!(obj instanceof DraggableSticker)) return;
-            this.handleDrop(obj);
+            let card: DraggableSticker | null = null;
+            if (obj instanceof DraggableSticker) {
+                card = obj;
+            } else if (obj && typeof obj === 'object') {
+                const parent = (obj as { parentContainer?: unknown }).parentContainer;
+                if (parent instanceof DraggableSticker) card = parent;
+            }
+            if (!card) return;
+            this.handleDrop(card);
         };
         this.scene.input.on('dragend', this.dragHandler);
 

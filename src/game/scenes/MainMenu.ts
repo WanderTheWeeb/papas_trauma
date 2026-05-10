@@ -264,9 +264,9 @@ export class MainMenu extends Scene {
 
         // Botón principal
         this.makeButton({
-            x: cx - 200,
+            x: cx - 280,
             y: by,
-            w: 360,
+            w: 320,
             h: 56,
             label: 'EMPEZAR TURNO',
             arrow: '→',
@@ -274,11 +274,23 @@ export class MainMenu extends Scene {
             onClick: () => this.startConsulta(),
         });
 
-        // Botón cómo jugar
+        // Botón tutorial — caso de prueba guiado
         this.makeButton({
-            x: cx + 200,
+            x: cx + 60,
             y: by,
             w: 240,
+            h: 56,
+            label: 'TUTORIAL',
+            arrow: '★',
+            primary: false,
+            onClick: () => this.startTutorial(),
+        });
+
+        // Botón cómo jugar
+        this.makeButton({
+            x: cx + 320,
+            y: by,
+            w: 200,
             h: 56,
             label: 'CÓMO JUGAR',
             arrow: '?',
@@ -288,13 +300,23 @@ export class MainMenu extends Scene {
 
         // Hint debajo
         this.add
-            .text(cx, by + 50, 'un paciente a la vez · cuatro fases · un solo expediente', {
+            .text(cx, by + 50, 'primera vez? prueba el TUTORIAL · luego empieza el turno', {
                 ...TYPE.label,
                 fontSize: '10px',
                 color: COLORS_HEX.textDim,
             })
             .setOrigin(0.5)
             .setLetterSpacing(2.4);
+    }
+
+    private startTutorial() {
+        if (this.howToOverlay) return;
+        GameState.setTutorial(true);
+        GameState.startNewCase(0);
+        this.cameras.main.fadeOut(280, 7, 14, 24);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start(SCENES.CONSULTA);
+        });
     }
 
     private makeButton(opts: {
@@ -598,6 +620,7 @@ export class MainMenu extends Scene {
 
     private startConsulta() {
         if (this.howToOverlay) return; // no arranques con el modal abierto
+        GameState.setTutorial(false);
         GameState.startNewCase(0);
         this.cameras.main.fadeOut(280, 7, 14, 24);
         this.cameras.main.once('camerafadeoutcomplete', () => {

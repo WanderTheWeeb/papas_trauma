@@ -32,6 +32,10 @@ export class DraggableSticker extends GameObjects.Container {
     private dragBounds?: DragBounds;
     private halfW = 0;
     private halfH = 0;
+    // Offset entre el cursor y el centro de la card al iniciar drag.
+    // Sin esto la card "salta" para centrarse bajo el cursor.
+    private dragOffsetX = 0;
+    private dragOffsetY = 0;
 
     constructor(scene: Scene, x: number, y: number, value: string, tilt = 0) {
         super(scene, x, y);
@@ -43,19 +47,19 @@ export class DraggableSticker extends GameObjects.Container {
         this.label = scene.add
             .text(0, 0, value, {
                 fontFamily: FONTS.body,
-                fontSize: '12px',
+                fontSize: '13px',
                 color: COLORS_HEX.ink,
                 fontStyle: '500',
-                wordWrap: { width: 130 },
+                wordWrap: { width: 156 },
                 align: 'left',
-                lineSpacing: 2,
+                lineSpacing: 3,
             })
             .setOrigin(0, 0.5);
 
-        const padX = 12;
-        const padY = 12;
-        const w = 168;
-        const h = Math.max(50, this.label.height + padY * 2);
+        const padX = 14;
+        const padY = 14;
+        const w = 192;
+        const h = Math.max(64, this.label.height + padY * 2);
         this.halfW = w / 2;
         this.halfH = h / 2;
         void padX;
@@ -92,18 +96,20 @@ export class DraggableSticker extends GameObjects.Container {
         this.visual.add([shadow, this.bg, this.accent, dogear, this.label]);
         this.add(this.visual);
 
-        // Hit area centrado y simétrico, ligeramente más grande que el visual
-        // para fat-finger en mobile. Cualquier asimetría aquí causa que la card
-        // "se agarre desde un lado" — manténlo simétrico.
-        const pad = 14;
+        // Phaser 4 interpreta el Rectangle del hit area corrido arriba-izquierda
+        // del centro del Container. Compensación: desplazar el rect abajo-derecha
+        // para que el hit testing real caiga sobre el visual. Estos offsets son
+        // empíricos — tunearlos mirando el modo D y probando picks.
+        const pad = 4;
         const hitW = w + pad * 2;
         const hitH = h + pad * 2;
+        const offsetX = w / 2;   // = halfW: shift a la derecha medio ancho
+        const offsetY = h / 2;   // = halfH: shift abajo medio alto
         this.setSize(hitW, hitH);
         this.setInteractive(
-            new Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH),
+            new Geom.Rectangle(-hitW / 2 + offsetX, -hitH / 2 + offsetY, hitW, hitH),
             Geom.Rectangle.Contains,
         );
-
         scene.input.setDraggable(this);
 
         this.on('pointerover', () => {
@@ -117,26 +123,33 @@ export class DraggableSticker extends GameObjects.Container {
             scene.tweens.add({ targets: this.visual, scale: 1, duration: 120 });
         });
 
-        this.on('dragstart', () => {
+        this.on('dragstart', (p: Input.Pointer) => {
             this.setDepth(2000);
-            // Endereza el outer container y agranda el visual para feedback
             scene.tweens.add({ targets: this, angle: 0, duration: 120 });
             scene.tweens.add({ targets: this.visual, scale: 1.08, duration: 120 });
+            // Captura el offset cursor↔centro al inicio del drag para
+            // preservarlo durante el movimiento (sin snap al cursor).
+            this.dragOffsetX = this.x - p.worldX;
+            this.dragOffsetY = this.y - p.worldY;
         });
 
-        this.on('drag', (_p: Input.Pointer, dx: number, dy: number) => {
+        this.on('drag', (p: Input.Pointer) => {
             if (this.consumed) return;
+            // Ignora dx/dy de Phaser (buggy con Container en v4) y usa
+            // pointer.worldX/Y + el offset capturado en dragstart.
+            const targetX = p.worldX + this.dragOffsetX;
+            const targetY = p.worldY + this.dragOffsetY;
             const b = this.dragBounds;
             if (b) {
                 const minX = b.left + this.halfW;
                 const maxX = b.right - this.halfW;
                 const minY = b.top + this.halfH;
                 const maxY = b.bottom - this.halfH;
-                this.x = Math.max(minX, Math.min(maxX, dx));
-                this.y = Math.max(minY, Math.min(maxY, dy));
+                this.x = Math.max(minX, Math.min(maxX, targetX));
+                this.y = Math.max(minY, Math.min(maxY, targetY));
             } else {
-                this.x = dx;
-                this.y = dy;
+                this.x = targetX;
+                this.y = targetY;
             }
         });
 

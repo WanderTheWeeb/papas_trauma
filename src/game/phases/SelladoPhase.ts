@@ -178,7 +178,8 @@ export class SelladoPhase extends PhaseHandler {
         const cols = 3;
         const cardW = 188;
         const gap = 14;
-        const rowsY = [trayY + 26, trayY + 84];
+        // Más separación vertical: hit areas con pad grande no deben traslaparse.
+        const rowsY = [trayY + 36, trayY + 116];
 
         ids.forEach((d, i) => {
             const col = i % cols;
@@ -219,11 +220,9 @@ export class SelladoPhase extends PhaseHandler {
             .setOrigin(0.5);
 
         c.add([fill, ring, label]);
-        // Hit area centrado y simétrico — todos los hijos están a (0,0), así
-        // que el centro del hit area coincide con el centro visual del sello.
-        const pad = 14;
-        const hitW = w + pad * 2;
-        const hitH = h + pad * 2;
+        // Hit area = pixel-perfect con el visual. Cero pad invisible.
+        const hitW = w;
+        const hitH = h;
         c.setSize(hitW, hitH);
         c.setInteractive(
             new Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH),
@@ -241,12 +240,14 @@ export class SelladoPhase extends PhaseHandler {
         });
 
         c.on('dragstart', () => c.setDepth(2000));
+        // Visual half-extents — NO usar c.width/c.height (incluyen pad del hit area
+        // y harían saltar el sello al recogerlo en columnas/filas extremas).
+        const visualHalfW = w / 2;
+        const visualHalfH = h / 2;
         c.on('drag', (_p: Input.Pointer, dx: number, dy: number) => {
             if (c.consumed || this.locked) return;
-            const halfW = (c.width || 160) / 2;
-            const halfH = (c.height || 56) / 2;
-            c.x = Math.max(DESK_LEFT + halfW, Math.min(DESK_RIGHT - halfW, dx));
-            c.y = Math.max(DESK_TOP + halfH, Math.min(DESK_BOTTOM - halfH, dy));
+            c.x = Math.max(DESK_LEFT + visualHalfW, Math.min(DESK_RIGHT - visualHalfW, dx));
+            c.y = Math.max(DESK_TOP + visualHalfH, Math.min(DESK_BOTTOM - visualHalfH, dy));
         });
         c.on('dragend', () => c.setDepth(0));
 

@@ -10,6 +10,14 @@ class GameStateClass {
     private casoIndex = 0;
     private ticket: TicketEnConstruccion | null = null;
     private lastScore: ScoreDesglosado | null = null;
+    private tutorial = false;
+
+    setTutorial(on: boolean) {
+        this.tutorial = on;
+    }
+    isTutorial(): boolean {
+        return this.tutorial;
+    }
 
     startNewCase(index = 0): CasoClinico | null {
         if (CASOS_CLINICOS.length === 0) return null;
