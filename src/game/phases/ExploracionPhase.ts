@@ -45,6 +45,12 @@ export class ExploracionPhase extends PhaseHandler {
         return this.done >= this.expected;
     }
 
+    getDemoSource(): { x: number; y: number } | null {
+        const expectedIds = this.caso.maniobras.map(m => m.id);
+        const chip = this.chips.find(c => !c.consumed && expectedIds.includes(c.maniobraId));
+        return chip ? { x: chip.x, y: chip.y } : null;
+    }
+
     build() {
         this.expected = this.caso.maniobras.length;
 
@@ -234,15 +240,23 @@ export class ExploracionPhase extends PhaseHandler {
 
         c.add([bg, accent, name, sub]);
         c.bg = bg;
-        // Hit area = pixel-perfect con el visual. Cero pad invisible.
-        const hitW = w;
-        const hitH = h;
+        // Phaser 4: Container con Rectangle hit area se interpreta corrido
+        // arriba-izquierda. Compensamos con offset +halfW/+halfH.
+        const pad = 4;
+        const hitW = w + pad * 2;
+        const hitH = h + pad * 2;
+        const offsetX = w / 2;
+        const offsetY = h / 2;
         c.setSize(hitW, hitH);
         c.setInteractive(
-            new Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH),
+            new Geom.Rectangle(-hitW / 2 + offsetX, -hitH / 2 + offsetY, hitW, hitH),
             Geom.Rectangle.Contains,
         );
         this.scene.input.setDraggable(c);
+
+        // Capturamos offset cursor↔centro al iniciar drag para no saltar
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
 
         c.on('pointerover', () => {
             if (c.consumed) return;
@@ -253,11 +267,17 @@ export class ExploracionPhase extends PhaseHandler {
             bg.setStrokeStyle(1, COLORS.border);
         });
 
-        c.on('dragstart', () => c.setDepth(2000));
-        c.on('drag', (_p: Input.Pointer, dx: number, dy: number) => {
+        c.on('dragstart', (p: Input.Pointer) => {
+            c.setDepth(2000);
+            dragOffsetX = c.x - p.worldX;
+            dragOffsetY = c.y - p.worldY;
+        });
+        c.on('drag', (p: Input.Pointer) => {
             if (c.consumed || this.testing) return;
-            c.x = Math.max(DESK_LEFT + visualHalfW, Math.min(DESK_RIGHT - visualHalfW, dx));
-            c.y = Math.max(DESK_TOP + visualHalfH, Math.min(DESK_BOTTOM - visualHalfH, dy));
+            const targetX = p.worldX + dragOffsetX;
+            const targetY = p.worldY + dragOffsetY;
+            c.x = Math.max(DESK_LEFT + visualHalfW, Math.min(DESK_RIGHT - visualHalfW, targetX));
+            c.y = Math.max(DESK_TOP + visualHalfH, Math.min(DESK_BOTTOM - visualHalfH, targetY));
         });
         c.on('dragend', () => c.setDepth(0));
 

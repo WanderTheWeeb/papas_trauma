@@ -32,6 +32,13 @@ export class RecepcionPhase extends PhaseHandler {
         return this.cards.length > 0 && this.cards.every(c => c.consumed);
     }
 
+    getDemoSource(): { x: number; y: number } | null {
+        const correct = this.cards.find(
+            c => !c.consumed && this.caso.factoresRiesgo.includes(c.value),
+        );
+        return correct ? { x: correct.x, y: correct.y } : null;
+    }
+
     build() {
         const correct = this.caso.factoresRiesgo;
 

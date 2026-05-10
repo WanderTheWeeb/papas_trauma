@@ -45,6 +45,11 @@ export class SelladoPhase extends PhaseHandler {
         return this.locked;
     }
 
+    getDemoSource(): { x: number; y: number } | null {
+        const correct = this.sellos.find(s => s.diagnostico === this.caso.diagnosticoCorrecto);
+        return correct ? { x: correct.x, y: correct.y } : null;
+    }
+
     build() {
         this.buildNegatoscopioAux(this.caso.rom);
         this.buildSellosBandeja();
@@ -220,15 +225,26 @@ export class SelladoPhase extends PhaseHandler {
             .setOrigin(0.5);
 
         c.add([fill, ring, label]);
-        // Hit area = pixel-perfect con el visual. Cero pad invisible.
-        const hitW = w;
-        const hitH = h;
+        // Phaser 4: Container con Rectangle hit area se interpreta corrido
+        // arriba-izquierda. Compensamos con offset +halfW/+halfH.
+        const pad = 4;
+        const hitW = w + pad * 2;
+        const hitH = h + pad * 2;
+        const offsetX = w / 2;
+        const offsetY = h / 2;
         c.setSize(hitW, hitH);
         c.setInteractive(
-            new Geom.Rectangle(-hitW / 2, -hitH / 2, hitW, hitH),
+            new Geom.Rectangle(-hitW / 2 + offsetX, -hitH / 2 + offsetY, hitW, hitH),
             Geom.Rectangle.Contains,
         );
         this.scene.input.setDraggable(c);
+
+        // Visual half-extents para el clamp del drag (NO el hit area)
+        const visualHalfW = w / 2;
+        const visualHalfH = h / 2;
+        // Offset cursor↔centro capturado en dragstart para no saltar
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
 
         c.on('pointerover', () => {
             if (c.consumed || this.locked) return;
@@ -239,15 +255,17 @@ export class SelladoPhase extends PhaseHandler {
             fill.setAlpha(0.18);
         });
 
-        c.on('dragstart', () => c.setDepth(2000));
-        // Visual half-extents — NO usar c.width/c.height (incluyen pad del hit area
-        // y harían saltar el sello al recogerlo en columnas/filas extremas).
-        const visualHalfW = w / 2;
-        const visualHalfH = h / 2;
-        c.on('drag', (_p: Input.Pointer, dx: number, dy: number) => {
+        c.on('dragstart', (p: Input.Pointer) => {
+            c.setDepth(2000);
+            dragOffsetX = c.x - p.worldX;
+            dragOffsetY = c.y - p.worldY;
+        });
+        c.on('drag', (p: Input.Pointer) => {
             if (c.consumed || this.locked) return;
-            c.x = Math.max(DESK_LEFT + visualHalfW, Math.min(DESK_RIGHT - visualHalfW, dx));
-            c.y = Math.max(DESK_TOP + visualHalfH, Math.min(DESK_BOTTOM - visualHalfH, dy));
+            const targetX = p.worldX + dragOffsetX;
+            const targetY = p.worldY + dragOffsetY;
+            c.x = Math.max(DESK_LEFT + visualHalfW, Math.min(DESK_RIGHT - visualHalfW, targetX));
+            c.y = Math.max(DESK_TOP + visualHalfH, Math.min(DESK_BOTTOM - visualHalfH, targetY));
         });
         c.on('dragend', () => c.setDepth(0));
 

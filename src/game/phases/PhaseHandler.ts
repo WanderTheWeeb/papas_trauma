@@ -53,6 +53,15 @@ export abstract class PhaseHandler {
     abstract phaseLabel(): string;
     abstract phaseHint(): string;
 
+    /**
+     * Para el tutorial: posición de un elemento "correcto" desde el cual
+     * demostrar el gesto al jugador. Default: null (sin demo). Cada fase
+     * sobreescribe para devolver el centro de su pick correcto.
+     */
+    getDemoSource(): { x: number; y: number } | null {
+        return null;
+    }
+
     /** Called when the phase is leaving. Default: empty bandeja & aux containers. */
     cleanup() {
         // Detach any input listeners we registered through trackInput

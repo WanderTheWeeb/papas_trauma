@@ -10,6 +10,7 @@ import type { ScoreDesglosado } from '../data/types';
 import { getPersonaje, type Personaje } from '../data/personajes';
 import { ChatLog } from '../objects/ChatLog';
 import { TutorialGuide } from '../objects/TutorialGuide';
+import { TutorialDemo } from '../objects/TutorialDemo';
 import { PhaseHandler } from '../phases/PhaseHandler';
 import { RecepcionPhase } from '../phases/RecepcionPhase';
 import { ExploracionPhase } from '../phases/ExploracionPhase';
@@ -82,6 +83,7 @@ export class ConsultaScene extends Scene {
 
     // Tutorial mode
     private tutorial?: TutorialGuide;
+    private tutorialDemo?: TutorialDemo;
     private tutorialActive = false;
 
     constructor() {
@@ -158,6 +160,7 @@ export class ConsultaScene extends Scene {
         this.tutorialActive = GameState.isTutorial();
         if (this.tutorialActive) {
             this.tutorial = new TutorialGuide(this);
+            this.tutorialDemo = new TutorialDemo(this);
             // Tip de bienvenida antes del flujo, una sola vez por sesión-tutorial
             this.showWelcomeTutorial(() => this.startPhase('recepcion'));
         } else {
@@ -951,8 +954,50 @@ export class ConsultaScene extends Scene {
             },
         };
         this.tutorial.show(tips[id], () => {
-            // No-op: el dim ya se destruyó, el jugador interactúa con la fase
+            // Tras cerrar el modal, dispara la animación demo del gesto
+            this.playDemoForPhase(id);
         });
+    }
+
+    private playDemoForPhase(id: 'recepcion' | 'exploracion' | 'sellado' | 'prescripcion') {
+        if (!this.tutorialDemo) return;
+        const expCenter = { x: this.expediente.x, y: this.expediente.y };
+
+        // Para drag: usa la fase actual para encontrar la posición de un
+        // pick CORRECTO (las cards/chips/sellos están shuffled, no podemos
+        // hardcodear la pos del primer slot porque puede ser un distractor).
+        const correctSource = this.currentPhase?.getDemoSource();
+
+        switch (id) {
+            case 'recepcion': {
+                if (!correctSource) return;
+                this.tutorialDemo.playDrag(correctSource, expCenter, 'ARRASTRA AL EXPEDIENTE');
+                break;
+            }
+            case 'exploracion': {
+                if (!correctSource) return;
+                const shoulderX = BANDEJA_X + 14 + (BANDEJA_W - 28) / 2;
+                const shoulderY = BANDEJA_Y + 30 + (200 - 44) / 2;
+                this.tutorialDemo.playDrag(
+                    correctSource,
+                    { x: shoulderX, y: shoulderY },
+                    'ARRASTRA AL HOMBRO',
+                );
+                break;
+            }
+            case 'sellado': {
+                if (!correctSource) return;
+                this.tutorialDemo.playDrag(correctSource, expCenter, 'ARRASTRA AL EXPEDIENTE');
+                break;
+            }
+            case 'prescripcion': {
+                // Tap en el primer fármaco (un AINE — Sans necesita conservador)
+                const farmacoX = BANDEJA_X + 16 + (BANDEJA_W - 32) / 8;
+                const farmacoY = BANDEJA_Y + 36 + 75;
+                this.tutorialDemo.playTap({ x: farmacoX, y: farmacoY }, 'TOCA EL FÁRMACO');
+                break;
+            }
+        }
     }
 
     private makePhase(id: 'recepcion' | 'exploracion' | 'sellado' | 'prescripcion'): PhaseHandler {
@@ -1228,6 +1273,7 @@ export class ConsultaScene extends Scene {
         // apagamos para que el jugador juegue normal.
         GameState.setTutorial(false);
         this.tutorial?.destroy();
+        this.tutorialDemo?.cleanup();
         this.cameras.main.fadeOut(260, 7, 14, 24);
         this.cameras.main.once('camerafadeoutcomplete', () => {
             GameState.nextCase();

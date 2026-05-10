@@ -1,4 +1,4 @@
-import { GameObjects } from 'phaser';
+import { GameObjects, Geom } from 'phaser';
 import { COLORS, COLORS_HEX, FONTS, TYPE } from '../config/theme';
 import { GameState } from '../state/GameState';
 import { PhaseHandler } from './PhaseHandler';
@@ -217,8 +217,15 @@ export class PrescripcionPhase extends PhaseHandler {
             .setOrigin(0, 0);
 
         cont.add([body, accentTop, stripes, brand, tipoBg, tipoText, visualG, name, dose, accentBot]);
+        // Phaser 4: Container con hit area se interpreta corrido por (-w/2, -h/2).
+        // Para visual con origen top-left (ocupa (0,0) a (w,h)), compensamos
+        // con Rectangle(w/2, h/2, w, h) → resulta en hit area en (0,0) a (w,h).
         cont.setSize(w, h);
-        cont.setInteractive({ useHandCursor: true });
+        cont.setInteractive({
+            hitArea: new Geom.Rectangle(w / 2, h / 2, w, h),
+            hitAreaCallback: Geom.Rectangle.Contains,
+            useHandCursor: true,
+        });
         this.own(cont);
 
         cont.on('pointerover', () => {
